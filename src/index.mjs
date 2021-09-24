@@ -7,7 +7,12 @@ const subscribe = (portName, fn) => {
   app.ports && app.ports[portName] && app.ports[portName].subscribe(fn);
 };
 subscribe('readFile', async filename => {
-  const contents = await fs.readFile(filename, 'utf-8');
+  let contents = null;
+  try {
+    contents = await fs.readFile(filename, 'utf-8');
+  } catch (e) {}
   app.ports.readFileResult.send(contents);
 });
-subscribe('print', async msg => console.log(msg));
+subscribe('print', async msg => process.stderr.write(msg));
+subscribe('println', async msg => process.stderr.write(msg + '\n'));
+subscribe('exit', async code => process.exit(code));

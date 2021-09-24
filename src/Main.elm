@@ -1,5 +1,7 @@
 port module Main exposing (main)
 
+import Scanner exposing (Token)
+
 
 port readFile : String -> Cmd msg
 
@@ -7,7 +9,16 @@ port readFile : String -> Cmd msg
 port readFileResult : (Maybe String -> msg) -> Sub msg
 
 
+port userInput : (String -> msg) -> Sub msg
+
+
 port print : String -> Cmd msg
+
+
+port println : String -> Cmd msg
+
+
+port exit : Int -> Cmd msg
 
 
 main : Program Flags Model Msg
@@ -23,26 +34,127 @@ type alias Flags =
     { args : List String }
 
 
-type alias Model =
-    ()
+type Model
+    = WaitingForFileContents { filename : String }
+    | ReplWaitingForInput
+    | Done
 
 
 type Msg
-    = NoOp
+    = ReadFileResult { filename : String, contents : Maybe String }
+    | GotUserInput String
 
 
-init : Flags -> ( Model, Cmd msg )
-init flags =
-    ( (), print "Beam me up, Scotty!" )
+exitWithMessage : Int -> String -> Cmd Msg
+exitWithMessage code message =
+    Cmd.batch
+        [ println message
+        , exit code
+        ]
 
 
-subscriptions : Model -> Sub msg
+init : Flags -> ( Model, Cmd Msg )
+init { args } =
+    case args of
+        [] ->
+            runPrompt
+
+        [ file ] ->
+            runFile file
+
+        _ ->
+            ( Done
+            , exitWithMessage 64 "Usage: jlox [script]"
+            )
+
+
+runFile : String -> ( Model, Cmd Msg )
+runFile filename =
+    ( WaitingForFileContents { filename = filename }
+    , readFile filename
+    )
+
+
+runPrompt : ( Model, Cmd Msg )
+runPrompt =
+    ( ReplWaitingForInput
+    , print "> "
+    )
+
+
+runAndRepeat : String -> ( Model, Cmd Msg )
+runAndRepeat input =
+    let
+        runCmds : Cmd Msg
+        runCmds =
+            run input
+    in
+    runPrompt
+        |> addCmd runCmds
+
+
+addCmd : Cmd msg -> ( Model, Cmd msg ) -> ( Model, Cmd msg )
+addCmd cmd ( model, oldCmd ) =
+    ( model, Cmd.batch [ cmd, oldCmd ] )
+
+
+run : String -> Cmd Msg
+run program =
+    let
+        tokens =
+            Scanner.scanTokens program
+    in
+    print (Debug.toString tokens)
+
+
+subscriptions : Model -> Sub Msg
 subscriptions model =
-    Sub.none
+    case model of
+        WaitingForFileContents { filename } ->
+            readFileResult
+                (\contents ->
+                    ReadFileResult
+                        { filename = filename
+                        , contents = contents
+                        }
+                )
+
+        ReplWaitingForInput ->
+            userInput GotUserInput
+
+        Done ->
+            Sub.none
 
 
-update : Msg -> Model -> ( Model, Cmd msg )
+update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        NoOp ->
-            ( model, Cmd.none )
+        ReadFileResult read ->
+            case model of
+                WaitingForFileContents waiting ->
+                    if waiting.filename == read.filename then
+                        case read.contents of
+                            Nothing ->
+                                ( Done
+                                , exitWithMessage 64 ("Couldn't read file: " ++ read.filename)
+                                )
+
+                            Just contents ->
+                                ( Done, run contents )
+
+                    else
+                        -- throwing read file contents away
+                        ( model, Cmd.none )
+
+                ReplWaitingForInput ->
+                    ( model, Cmd.none )
+
+                Done ->
+                    ( model, Cmd.none )
+
+        GotUserInput input ->
+            if String.isEmpty input then
+                ( Done, Cmd.none )
+
+            else
+                runAndRepeat input

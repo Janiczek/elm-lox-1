@@ -1,7 +1,7 @@
 port module Main exposing (main)
 
 import Error exposing (Error)
-import Scanner exposing (Token)
+import Scanner
 
 
 port readFile : String -> Cmd msg
@@ -19,7 +19,7 @@ port print : String -> Cmd msg
 port println : String -> Cmd msg
 
 
-port exit : Int -> Cmd msg
+port exitWithMessage : ( Int, String ) -> Cmd msg
 
 
 main : Program Flags Model Msg
@@ -46,14 +46,6 @@ type Msg
     | GotUserInput String
 
 
-exitWithMessage : Int -> String -> Cmd Msg
-exitWithMessage code message =
-    Cmd.batch
-        [ println message
-        , exit code
-        ]
-
-
 init : Flags -> ( Model, Cmd Msg )
 init { args } =
     case args of
@@ -65,7 +57,7 @@ init { args } =
 
         _ ->
             ( Done
-            , exitWithMessage 64 "Usage: jlox [script]"
+            , exitWithMessage ( 64, "Usage: jlox [script]" )
             )
 
 
@@ -86,16 +78,14 @@ runPrompt =
 runAndRepeat : String -> ( Model, Cmd Msg )
 runAndRepeat input =
     let
-        ( cmd, maybeError ) =
-            run input
-
+        finalCmd : Cmd Msg
         finalCmd =
-            case maybeError of
-                Nothing ->
+            case run input of
+                Ok cmd ->
                     cmd
 
-                Just err ->
-                    println (Error.toString err)
+                Err err ->
+                    println (String.join "\n" (List.map Error.toString err))
     in
     runPrompt
         |> addCmd finalCmd
@@ -103,18 +93,19 @@ runAndRepeat input =
 
 addCmd : Cmd msg -> ( Model, Cmd msg ) -> ( Model, Cmd msg )
 addCmd cmd ( model, oldCmd ) =
-    ( model, Cmd.batch [ cmd, oldCmd ] )
-
-
-run : String -> ( Cmd Msg, Maybe Error )
-run program =
-    let
-        tokens =
-            Scanner.scanTokens program
-    in
-    ( print <| Debug.toString tokens
-    , Nothing
+    ( model
+    , Cmd.batch
+        [ cmd
+        , oldCmd
+        ]
     )
+
+
+run : String -> Result (List Error) (Cmd Msg)
+run program =
+    -- TODO return values here instead of Cmd?
+    Scanner.scanTokens program
+        |> Result.map (print << Debug.toString)
 
 
 subscriptions : Model -> Sub Msg
@@ -146,20 +137,16 @@ update msg model =
                         case read.contents of
                             Nothing ->
                                 ( Done
-                                , exitWithMessage 64 ("Couldn't read file: " ++ read.filename)
+                                , exitWithMessage ( 64, "Couldn't read file: " ++ read.filename )
                                 )
 
                             Just contents ->
-                                let
-                                    ( cmd, maybeError ) =
-                                        run contents
-                                in
-                                case maybeError of
-                                    Nothing ->
+                                case run contents of
+                                    Ok cmd ->
                                         ( Done, cmd )
 
-                                    Just err ->
-                                        ( Done, exitWithMessage 65 (Error.toString err) )
+                                    Err err ->
+                                        ( Done, exitWithMessage ( 65, String.join "\n" (List.map Error.toString err) ) )
 
                     else
                         -- throwing read file contents away

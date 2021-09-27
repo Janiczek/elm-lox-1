@@ -1,29 +1,51 @@
-module Error exposing (Error, error, locatedError, toString)
+module Error exposing (Error, Type(..), error, locatedError, toString)
 
 
 type Error
-    = Error { line : Int, where_ : Maybe String, message : String }
-
-
-error : Int -> String -> Error
-error line message =
-    Error
-        { line = line
-        , where_ = Nothing
-        , message = message
+    = Error
+        { line : Int
+        , where_ : Maybe String
+        , type_ : Type
         }
 
 
-locatedError : { line : Int, where_ : Maybe String, message : String } -> Error
+type Type
+    = UnexpectedCharacter String
+
+
+error : Int -> Type -> Error
+error line type_ =
+    Error
+        { line = line
+        , where_ = Nothing
+        , type_ = type_
+        }
+
+
+locatedError :
+    { line : Int
+    , where_ : Maybe String
+    , type_ : Type
+    }
+    -> Error
 locatedError rec =
     Error rec
 
 
+typeToString : Type -> String
+typeToString type_ =
+    case type_ of
+        UnexpectedCharacter char ->
+            "Unexpected character: "
+                ++ String.replace "\n" "\\n" char
+                ++ "."
+
+
 toString : Error -> String
-toString (Error { line, where_, message }) =
+toString (Error { line, where_, type_ }) =
     "[line "
         ++ String.fromInt line
         ++ "] Error"
         ++ Maybe.withDefault "" where_
         ++ ": "
-        ++ message
+        ++ typeToString type_

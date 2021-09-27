@@ -15,4 +15,9 @@ subscribe('readFile', async filename => {
 });
 subscribe('print', async msg => process.stderr.write(msg));
 subscribe('println', async msg => process.stderr.write(msg + '\n'));
-subscribe('exit', async code => process.exit(code));
+subscribe('exitWithMessage', async (codeAndMsg) => {
+  const [code, msg] = codeAndMsg;
+  process.stderr.write(msg + '\n');
+  process.exit(code);
+});
+

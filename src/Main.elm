@@ -1,5 +1,6 @@
 port module Main exposing (main)
 
+import Error exposing (Error)
 import Scanner exposing (Token)
 
 
@@ -85,12 +86,19 @@ runPrompt =
 runAndRepeat : String -> ( Model, Cmd Msg )
 runAndRepeat input =
     let
-        runCmds : Cmd Msg
-        runCmds =
+        ( cmd, maybeError ) =
             run input
+
+        finalCmd =
+            case maybeError of
+                Nothing ->
+                    cmd
+
+                Just err ->
+                    println (Error.toString err)
     in
     runPrompt
-        |> addCmd runCmds
+        |> addCmd finalCmd
 
 
 addCmd : Cmd msg -> ( Model, Cmd msg ) -> ( Model, Cmd msg )
@@ -98,13 +106,15 @@ addCmd cmd ( model, oldCmd ) =
     ( model, Cmd.batch [ cmd, oldCmd ] )
 
 
-run : String -> Cmd Msg
+run : String -> ( Cmd Msg, Maybe Error )
 run program =
     let
         tokens =
             Scanner.scanTokens program
     in
-    print (Debug.toString tokens)
+    ( print <| Debug.toString tokens
+    , Nothing
+    )
 
 
 subscriptions : Model -> Sub Msg
@@ -140,7 +150,16 @@ update msg model =
                                 )
 
                             Just contents ->
-                                ( Done, run contents )
+                                let
+                                    ( cmd, maybeError ) =
+                                        run contents
+                                in
+                                case maybeError of
+                                    Nothing ->
+                                        ( Done, cmd )
+
+                                    Just err ->
+                                        ( Done, exitWithMessage 65 (Error.toString err) )
 
                     else
                         -- throwing read file contents away

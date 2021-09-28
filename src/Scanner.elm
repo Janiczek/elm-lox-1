@@ -68,23 +68,6 @@ scanToken state =
         ( currentChar, state1 ) =
             advance state
 
-        token : Token.Type -> State -> State -> ( Result Error (Maybe Token), State )
-        token type_ firstState secondState =
-            ( Ok <|
-                Just <|
-                    Token.token
-                        type_
-                        (String.slice firstState.start secondState.current firstState.program)
-                        firstState.line
-            , secondState
-            )
-
-        error : Error.Type -> State -> State -> ( Result Error (Maybe Token), State )
-        error err firstState secondState =
-            ( Err <| Error.error firstState.line err
-            , secondState
-            )
-
         ifMatches : String -> Token.Type -> Token.Type -> State -> ( Result Error (Maybe Token), State )
         ifMatches nextChar then_ else_ firstState =
             let
@@ -151,7 +134,7 @@ scanToken state =
             in
             if matches then
                 -- // line comment
-                ( Ok Nothing, skipUntil "\n" state2 )
+                ( Ok Nothing, skipUntilNewline state2 )
 
             else
                 token Token.Slash state1 state2
@@ -169,8 +152,30 @@ scanToken state =
         "\n" ->
             ( Ok Nothing, { state1 | line = state1.line + 1 } )
 
+        "\"" ->
+            string state1
+
         _ ->
             error (UnexpectedCharacter currentChar) state state1
+
+
+token : Token.Type -> State -> State -> ( Result Error (Maybe Token), State )
+token type_ firstState secondState =
+    ( Ok <|
+        Just <|
+            Token.token
+                type_
+                (String.slice firstState.start secondState.current firstState.program)
+                firstState.line
+    , secondState
+    )
+
+
+error : Error.Type -> State -> State -> ( Result Error (Maybe Token), State )
+error err firstState secondState =
+    ( Err <| Error.error firstState.line err
+    , secondState
+    )
 
 
 advance : State -> ( String, State )
@@ -205,15 +210,65 @@ isAtEnd state =
     state.current >= state.programLength
 
 
-skipUntil : String -> State -> State
-skipUntil sentinel state =
-    if isAtEnd state || current state == sentinel then
+skipUntilNewline : State -> State
+skipUntilNewline state =
+    if isAtEnd state || current state == "\n" then
         state
 
     else
-        skipUntil sentinel (skipOne state)
+        skipUntilNewline (skipOne state)
 
 
 skipOne : State -> State
 skipOne state =
     { state | current = state.current + 1 }
+
+
+skipWithNewlineHandlingUntil : String -> State -> State
+skipWithNewlineHandlingUntil wantedChar state =
+    let
+        current_ =
+            current state
+    in
+    if isAtEnd state || current_ == wantedChar then
+        state
+
+    else if current_ == "\n" then
+        skipWithNewlineHandlingUntil
+            wantedChar
+            { state
+                | line = state.line + 1
+                , current = state.current + 1
+            }
+
+    else
+        skipWithNewlineHandlingUntil wantedChar (skipOne state)
+
+
+string : State -> ( Result Error (Maybe Token), State )
+string stateAfterStartQuote =
+    let
+        stateAfterContents : State
+        stateAfterContents =
+            skipWithNewlineHandlingUntil "\"" stateAfterStartQuote
+    in
+    if isAtEnd stateAfterContents then
+        error UnterminatedString stateAfterStartQuote stateAfterContents
+
+    else
+        let
+            stateAfterEndQuote : State
+            stateAfterEndQuote =
+                skipOne stateAfterContents
+
+            contents : String
+            contents =
+                String.slice
+                    stateAfterStartQuote.current
+                    stateAfterEndQuote.current
+                    stateAfterStartQuote.program
+        in
+        token
+            (Token.String contents)
+            stateAfterStartQuote
+            stateAfterEndQuote

@@ -11,6 +11,7 @@ type Error
 
 type Type
     = UnexpectedCharacter String
+    | UnterminatedString
 
 
 error : Int -> Type -> Error
@@ -39,6 +40,9 @@ typeToString type_ =
             "Unexpected character: "
                 ++ String.replace "\n" "\\n" char
                 ++ "."
+
+        UnterminatedString ->
+            "Unterminated string"
 
 
 toString : Error -> String

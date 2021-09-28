@@ -39,7 +39,7 @@ type Type
     | Less
     | LessEqual
     | Identifier
-    | String
+    | String String
     | Number
     | And
     | Class
@@ -123,8 +123,8 @@ typeToString type_ =
         Identifier ->
             "Identifier"
 
-        String ->
-            "String"
+        String string ->
+            "String: " ++ string
 
         Number ->
             "Number"

@@ -40,7 +40,10 @@ scanTokens program =
                         scanToken { state | start = state.current }
                 in
                 case result of
-                    Ok newToken ->
+                    Ok Nothing ->
+                        go newState errors tokens
+
+                    Ok (Just newToken) ->
                         go newState errors (newToken :: tokens)
 
                     Err err ->
@@ -51,30 +54,38 @@ scanTokens program =
         |> Result.mapError List.reverse
 
 
-scanToken : State -> ( Result Error Token, State )
+{-|
+
+    Err = something unexpected was found
+    Ok Nothing = we parsed and moved forward but no token was produced. Eg.
+                 line comments
+    Ok (Just token) = we parsed a token and moved forward!
+
+-}
+scanToken : State -> ( Result Error (Maybe Token), State )
 scanToken state =
     let
         ( currentChar, state1 ) =
             advance state
 
-        token : Token.Type -> State -> State -> ( Result Error Token, State )
+        token : Token.Type -> State -> State -> ( Result Error (Maybe Token), State )
         token type_ firstState secondState =
-            ( Ok
-                (Token.token
-                    type_
-                    (String.slice firstState.start secondState.current firstState.program)
-                    firstState.line
-                )
+            ( Ok <|
+                Just <|
+                    Token.token
+                        type_
+                        (String.slice firstState.start secondState.current firstState.program)
+                        firstState.line
             , secondState
             )
 
-        error : Error.Type -> State -> State -> ( Result Error Token, State )
+        error : Error.Type -> State -> State -> ( Result Error (Maybe Token), State )
         error err firstState secondState =
             ( Err <| Error.error firstState.line err
             , secondState
             )
 
-        ifMatches : String -> Token.Type -> Token.Type -> State -> ( Result Error Token, State )
+        ifMatches : String -> Token.Type -> Token.Type -> State -> ( Result Error (Maybe Token), State )
         ifMatches nextChar then_ else_ firstState =
             let
                 ( matches, secondState ) =
@@ -85,6 +96,10 @@ scanToken state =
 
             else
                 token else_ firstState secondState
+
+        nothing : ( Result Error (Maybe Token), State )
+        nothing =
+            ( Ok Nothing, state1 )
     in
     case currentChar of
         "(" ->
@@ -129,19 +144,45 @@ scanToken state =
         ">" ->
             ifMatches "=" Token.GreaterEqual Token.Greater state1
 
+        "/" ->
+            let
+                ( matches, state2 ) =
+                    match "/" state1
+            in
+            if matches then
+                -- // line comment
+                ( Ok Nothing, skipUntil "\n" state2 )
+
+            else
+                token Token.Slash state1 state2
+
+        " " ->
+            nothing
+
+        "\u{000D}" ->
+            -- '\r'
+            nothing
+
+        "\t" ->
+            nothing
+
+        "\n" ->
+            ( Ok Nothing, { state1 | line = state1.line + 1 } )
+
         _ ->
             error (UnexpectedCharacter currentChar) state state1
 
 
 advance : State -> ( String, State )
 advance state =
-    let
-        newCurrent =
-            state.current + 1
-    in
-    ( String.slice state.current newCurrent state.program
-    , { state | current = newCurrent }
+    ( current state
+    , { state | current = state.current + 1 }
     )
+
+
+current : State -> String
+current state =
+    String.slice state.current (state.current + 1) state.program
 
 
 {-| only advance if the next char is the one we want
@@ -149,19 +190,30 @@ advance state =
 match : String -> State -> ( Bool, State )
 match wantedChar state =
     let
-        possiblyNewCurrent =
-            state.current + 1
-
         nextChar =
-            String.slice state.current possiblyNewCurrent state.program
+            current state
     in
     if isAtEnd state || nextChar /= wantedChar then
         ( False, state )
 
     else
-        ( True, { state | current = possiblyNewCurrent } )
+        ( True, { state | current = state.current + 1 } )
 
 
 isAtEnd : State -> Bool
 isAtEnd state =
     state.current >= state.programLength
+
+
+skipUntil : String -> State -> State
+skipUntil sentinel state =
+    if isAtEnd state || current state == sentinel then
+        state
+
+    else
+        skipUntil sentinel (skipOne state)
+
+
+skipOne : State -> State
+skipOne state =
+    { state | current = state.current + 1 }

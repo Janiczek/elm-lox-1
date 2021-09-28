@@ -2,6 +2,8 @@
 
 A port of the `jlox` interpreter from "Crafting Interpreters".
 
+![Screenshot of it in action](./screenshot.png)
+
 ## TODO
 
 - [ ] Implement everything :)

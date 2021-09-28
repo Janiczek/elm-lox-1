@@ -4,7 +4,7 @@ module Token exposing (Token, Type(..), toString, token, type_)
 type Token
     = Token
         { type_ : Type
-        , lexeme : String
+        , lexeme : String -- TODO are lexemes needed?
         , line : Int
         }
 
@@ -183,10 +183,7 @@ typeToString type__ =
 
 toString : Token -> String
 toString (Token t) =
-    [ typeToString t.type_
-    , t.lexeme
-    ]
-        |> String.join " "
+    typeToString t.type_
 
 
 type_ : Token -> Type

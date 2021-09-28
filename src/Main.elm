@@ -2,12 +2,17 @@ port module Main exposing (main)
 
 import Error exposing (Error)
 import Scanner
+import Task
+import Token exposing (Token)
 
 
 port readFile : String -> Cmd msg
 
 
 port readFileResult : (Maybe String -> msg) -> Sub msg
+
+
+port waitForUserInput : () -> Cmd msg
 
 
 port userInput : (String -> msg) -> Sub msg
@@ -71,41 +76,34 @@ runFile filename =
 runPrompt : ( Model, Cmd Msg )
 runPrompt =
     ( ReplWaitingForInput
-    , print "> "
+    , Cmd.batch
+        [ print "> "
+        , waitForUserInput ()
+        ]
     )
 
 
 runAndRepeat : String -> ( Model, Cmd Msg )
 runAndRepeat input =
     let
-        finalCmd : Cmd Msg
-        finalCmd =
+        _ =
             case run input of
-                Ok cmd ->
-                    cmd
+                Ok tokens ->
+                    tokens
+                        |> Debug.log "tokens"
+                        |> always ()
 
-                Err err ->
-                    println (String.join "\n" (List.map Error.toString err))
+                Err errors ->
+                    errors
+                        |> List.map (Error.toString >> Debug.log "err")
+                        |> always ()
     in
     runPrompt
-        |> addCmd finalCmd
 
 
-addCmd : Cmd msg -> ( Model, Cmd msg ) -> ( Model, Cmd msg )
-addCmd cmd ( model, oldCmd ) =
-    ( model
-    , Cmd.batch
-        [ cmd
-        , oldCmd
-        ]
-    )
-
-
-run : String -> Result (List Error) (Cmd Msg)
+run : String -> Result (List Error) (List Token)
 run program =
-    -- TODO return values here instead of Cmd?
     Scanner.scanTokens program
-        |> Result.map (println << Debug.toString)
 
 
 subscriptions : Model -> Sub Msg
@@ -142,11 +140,24 @@ update msg model =
 
                             Just contents ->
                                 case run contents of
-                                    Ok cmd ->
-                                        ( Done, cmd )
+                                    Ok tokens ->
+                                        ( Done
+                                        , tokens
+                                            |> List.map (\token -> " - " ++ Token.toString token)
+                                            |> (\list -> "Tokens scanned:" :: list)
+                                            |> String.join "\n"
+                                            |> println
+                                        )
 
-                                    Err err ->
-                                        ( Done, exitWithMessage ( 65, String.join "\n" (List.map Error.toString err) ) )
+                                    Err errors ->
+                                        ( Done
+                                        , exitWithMessage
+                                            ( 65
+                                            , errors
+                                                |> List.map Error.toString
+                                                |> String.join "\n"
+                                            )
+                                        )
 
                     else
                         -- throwing read file contents away

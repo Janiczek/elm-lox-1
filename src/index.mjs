@@ -1,4 +1,5 @@
 import fs from 'fs/promises';
+import readline from 'readline-sync';
 import Elm from '../dist/elm.js';
 const args = process.argv.slice(2); // 0=node, 1=index.js
 const flags = {args};
@@ -19,5 +20,9 @@ subscribe('exitWithMessage', async (codeAndMsg) => {
   const [code, msg] = codeAndMsg;
   process.stderr.write(msg + '\n');
   process.exit(code);
+});
+subscribe('waitForUserInput', async () => {
+  const userInput = readline.question('');
+  app.ports.userInput.send(userInput);
 });
 

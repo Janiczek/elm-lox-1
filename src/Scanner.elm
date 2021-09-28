@@ -295,7 +295,7 @@ string stateAfterStartQuote =
             contents =
                 String.slice
                     stateAfterStartQuote.current
-                    stateAfterEndQuote.current
+                    stateAfterContents.current
                     stateAfterStartQuote.program
         in
         token

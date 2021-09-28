@@ -1,4 +1,11 @@
-module Error exposing (Error, Type(..), error, locatedError, toString)
+module Error exposing
+    ( Bug(..)
+    , Error
+    , Type(..)
+    , error
+    , locatedError
+    , toString
+    )
 
 
 type Error
@@ -12,6 +19,11 @@ type Error
 type Type
     = UnexpectedCharacter String
     | UnterminatedString
+    | Bug Bug
+
+
+type Bug
+    = ScannedFloatCouldntBeConvertedFromString
 
 
 error : Int -> Type -> Error
@@ -43,6 +55,15 @@ typeToString type_ =
 
         UnterminatedString ->
             "Unterminated string"
+
+        Bug bug ->
+            let
+                bugString =
+                    case bug of
+                        ScannedFloatCouldntBeConvertedFromString ->
+                            "scanned float couldn't be converted from string"
+            in
+            "Bug: " ++ bugString
 
 
 toString : Error -> String

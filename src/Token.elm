@@ -40,7 +40,7 @@ type Type
     | LessEqual
     | Identifier
     | String String
-    | Number
+    | Number Float
     | And
     | Class
     | Else
@@ -126,8 +126,8 @@ typeToString type_ =
         String string ->
             "String: " ++ string
 
-        Number ->
-            "Number"
+        Number float ->
+            "Number: " ++ String.fromFloat float
 
         And ->
             "And"

@@ -1,6 +1,6 @@
 module Scanner exposing (scanTokens)
 
-import Error exposing (Error, Type(..))
+import Error exposing (Bug(..), Error, Type(..))
 import Token exposing (Token)
 
 
@@ -156,7 +156,22 @@ scanToken state =
             string state1
 
         _ ->
-            error (UnexpectedCharacter currentChar) state state1
+            if isDigit currentChar then
+                number state1
+
+            else
+                -- fall through
+                error (UnexpectedCharacter currentChar) state state1
+
+
+isDigit : String -> Bool
+isDigit stringChar =
+    case String.toList stringChar of
+        [ char ] ->
+            Char.isDigit char
+
+        _ ->
+            False
 
 
 token : Token.Type -> State -> State -> ( Result Error (Maybe Token), State )
@@ -188,6 +203,11 @@ advance state =
 current : State -> String
 current state =
     String.slice state.current (state.current + 1) state.program
+
+
+next : State -> String
+next state =
+    String.slice (state.current + 1) (state.current + 2) state.program
 
 
 {-| only advance if the next char is the one we want
@@ -245,6 +265,16 @@ skipWithNewlineHandlingUntil wantedChar state =
         skipWithNewlineHandlingUntil wantedChar (skipOne state)
 
 
+skipWhile : (String -> Bool) -> State -> State
+skipWhile predicate state =
+    -- TODO doesn't handle newlines. Is that ever a problem?
+    if predicate (current state) then
+        skipWhile predicate (skipOne state)
+
+    else
+        state
+
+
 string : State -> ( Result Error (Maybe Token), State )
 string stateAfterStartQuote =
     let
@@ -272,3 +302,43 @@ string stateAfterStartQuote =
             (Token.String contents)
             stateAfterStartQuote
             stateAfterEndQuote
+
+
+number : State -> ( Result Error (Maybe Token), State )
+number stateAfterFirstNumber =
+    let
+        stateAfterIntegralPart : State
+        stateAfterIntegralPart =
+            skipWhile isDigit stateAfterFirstNumber
+
+        stateAfterPossiblyDecimalPart : State
+        stateAfterPossiblyDecimalPart =
+            if
+                (current stateAfterIntegralPart == ".")
+                    && isDigit (next stateAfterIntegralPart)
+            then
+                skipWhile isDigit (skipOne stateAfterIntegralPart)
+
+            else
+                stateAfterIntegralPart
+
+        number_ : Maybe Float
+        number_ =
+            String.slice
+                stateAfterFirstNumber.start
+                stateAfterPossiblyDecimalPart.current
+                stateAfterFirstNumber.program
+                |> String.toFloat
+    in
+    case number_ of
+        Just float ->
+            token
+                (Token.Number float)
+                stateAfterFirstNumber
+                stateAfterPossiblyDecimalPart
+
+        Nothing ->
+            error
+                (Bug ScannedFloatCouldntBeConvertedFromString)
+                stateAfterFirstNumber
+                stateAfterPossiblyDecimalPart

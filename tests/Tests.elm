@@ -44,32 +44,32 @@ scannerTests =
             , ( "Empty string", "\"\"", [ String "" ] )
             , ( "Number", "123", [ Number 123 ] )
             , ( "Number with decimal point", "123.45", [ Number 123.45 ] )
-
-            -- TODO identifier
-            -- TODO and
-            -- TODO class
-            -- TODO else
-            -- TODO false
-            -- TODO fun
-            -- TODO for
-            -- TODO if
-            -- TODO nil
-            -- TODO or
-            -- TODO print
-            -- TODO return
-            -- TODO super
-            -- TODO this
-            -- TODO true
-            -- TODO var
-            -- TODO while
-            -- TODO EOF
+            , ( "Identifier", "abcde", [ Identifier "abcde" ] )
+            , ( "Identifier with uppercase first char", "Abcde", [ Identifier "Abcde" ] )
+            , ( "Identifier with alphanum after first char", "a1B2C3", [ Identifier "a1B2C3" ] )
+            , ( "Reserved word: and", "and", [ And ] )
+            , ( "Reserved word: class", "class", [ Class ] )
+            , ( "Reserved word: else", "else", [ Else ] )
+            , ( "Reserved word: false", "false", [ Token.False ] )
+            , ( "Reserved word: fun", "fun", [ Fun ] )
+            , ( "Reserved word: for", "for", [ For ] )
+            , ( "Reserved word: if", "if", [ If ] )
+            , ( "Reserved word: nil", "nil", [ Nil ] )
+            , ( "Reserved word: or", "or", [ Or ] )
+            , ( "Reserved word: print", "print", [ Print ] )
+            , ( "Reserved word: return", "return", [ Return ] )
+            , ( "Reserved word: super", "super", [ Super ] )
+            , ( "Reserved word: this", "this", [ This ] )
+            , ( "Reserved word: true", "true", [ Token.True ] )
+            , ( "Reserved word: var", "var", [ Var ] )
+            , ( "Reserved word: while", "while", [ While ] )
             ]
 
         errCases : List ( String, String, List Error.Type )
         errCases =
-            -- TODO
             -- TODO number with decimal point but nothing after
             -- TODO number with decimal point but nothing before
+            -- TODO identifier with first char == number
             []
 
         runOkCase : ( String, String, List Token.Type ) -> Test
@@ -83,6 +83,7 @@ scannerTests =
     in
     Test.describe "Scanner.scanTokens"
         -- TODO some tests that show how newline and token.line handling works
+        -- TODO EOF
         [ okCases
             |> List.map runOkCase
             |> Test.describe "OK cases"

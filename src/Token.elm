@@ -38,7 +38,7 @@ type Type
     | GreaterEqual
     | Less
     | LessEqual
-    | Identifier
+    | Identifier String
     | String String
     | Number Float
     | And
@@ -120,8 +120,8 @@ typeToString type__ =
         LessEqual ->
             "LessEqual"
 
-        Identifier ->
-            "Identifier"
+        Identifier identifier ->
+            "Identifier: " ++ identifier
 
         String string ->
             "String: " ++ string

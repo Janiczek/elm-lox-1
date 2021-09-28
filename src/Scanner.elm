@@ -1,5 +1,6 @@
 module Scanner exposing (scanTokens)
 
+import Dict exposing (Dict)
 import Error exposing (Bug(..), Error, Type(..))
 import Token exposing (Token)
 
@@ -159,16 +160,34 @@ scanToken state =
             if isDigit currentChar then
                 number state1
 
+            else if isAlpha currentChar then
+                identifier state1
+
             else
                 -- fall through
                 error (UnexpectedCharacter currentChar) state state1
 
 
 isDigit : String -> Bool
-isDigit stringChar =
+isDigit =
+    liftToString Char.isDigit
+
+
+isAlpha : String -> Bool
+isAlpha =
+    liftToString Char.isAlpha
+
+
+isAlphaNum : String -> Bool
+isAlphaNum =
+    liftToString Char.isAlphaNum
+
+
+liftToString : (Char -> Bool) -> String -> Bool
+liftToString charPred stringChar =
     case String.toList stringChar of
         [ char ] ->
-            Char.isDigit char
+            charPred char
 
         _ ->
             False
@@ -342,3 +361,46 @@ number stateAfterFirstNumber =
                 (Bug ScannedFloatCouldntBeConvertedFromString)
                 stateAfterFirstNumber
                 stateAfterPossiblyDecimalPart
+
+
+reservedWords : Dict String Token.Type
+reservedWords =
+    [ ( "and", Token.And )
+    , ( "class", Token.Class )
+    , ( "else", Token.Else )
+    , ( "false", Token.False )
+    , ( "for", Token.For )
+    , ( "fun", Token.Fun )
+    , ( "if", Token.If )
+    , ( "nil", Token.Nil )
+    , ( "or", Token.Or )
+    , ( "print", Token.Print )
+    , ( "return", Token.Return )
+    , ( "super", Token.Super )
+    , ( "this", Token.This )
+    , ( "true", Token.True )
+    , ( "var", Token.Var )
+    , ( "while", Token.While )
+    ]
+        |> Dict.fromList
+
+
+identifier : State -> ( Result Error (Maybe Token), State )
+identifier stateAfterFirstLetter =
+    let
+        stateAfterIdentifierChars =
+            skipWhile isAlphaNum stateAfterFirstLetter
+
+        text : String
+        text =
+            String.slice
+                stateAfterFirstLetter.start
+                stateAfterIdentifierChars.current
+                stateAfterFirstLetter.program
+
+        type_ : Token.Type
+        type_ =
+            Dict.get text reservedWords
+                |> Maybe.withDefault (Token.Identifier text)
+    in
+    token type_ stateAfterFirstLetter stateAfterIdentifierChars

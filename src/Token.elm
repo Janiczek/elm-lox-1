@@ -1,4 +1,4 @@
-module Token exposing (Token, Type(..), toString, token)
+module Token exposing (Token, Type(..), toString, token, type_)
 
 
 type Token
@@ -10,9 +10,9 @@ type Token
 
 
 token : Type -> String -> Int -> Token
-token type_ lexeme line =
+token type__ lexeme line =
     Token
-        { type_ = type_
+        { type_ = type__
         , lexeme = lexeme
         , line = line
         }
@@ -61,8 +61,8 @@ type Type
 
 
 typeToString : Type -> String
-typeToString type_ =
-    case type_ of
+typeToString type__ =
+    case type__ of
         LeftParen ->
             "LeftParen"
 
@@ -182,8 +182,13 @@ typeToString type_ =
 
 
 toString : Token -> String
-toString (Token { type_, lexeme }) =
-    [ typeToString type_
-    , lexeme
+toString (Token t) =
+    [ typeToString t.type_
+    , t.lexeme
     ]
         |> String.join " "
+
+
+type_ : Token -> Type
+type_ (Token t) =
+    t.type_

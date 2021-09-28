@@ -105,7 +105,7 @@ run : String -> Result (List Error) (Cmd Msg)
 run program =
     -- TODO return values here instead of Cmd?
     Scanner.scanTokens program
-        |> Result.map (print << Debug.toString)
+        |> Result.map (println << Debug.toString)
 
 
 subscriptions : Model -> Sub Msg

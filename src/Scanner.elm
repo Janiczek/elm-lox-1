@@ -1,7 +1,7 @@
 module Scanner exposing (scanTokens)
 
 import Error exposing (Error, Type(..))
-import Token exposing (Token, Type(..))
+import Token exposing (Token)
 
 
 type alias State =
@@ -29,7 +29,7 @@ scanTokens program =
         go state errors tokens =
             if isAtEnd state then
                 if List.isEmpty errors then
-                    Ok <| Token.token EOF "" state.line :: tokens
+                    Ok <| Token.token Token.EOF "" state.line :: tokens
 
                 else
                     Err errors
@@ -54,59 +54,83 @@ scanTokens program =
 scanToken : State -> ( Result Error Token, State )
 scanToken state =
     let
-        ( currentChar, newState ) =
+        ( currentChar, state1 ) =
             advance state
 
-        token : Token.Type -> ( Result Error Token, State )
-        token type_ =
+        token : Token.Type -> State -> State -> ( Result Error Token, State )
+        token type_ firstState secondState =
             ( Ok
                 (Token.token
                     type_
-                    (String.slice state.start newState.current state.program)
-                    state.line
+                    (String.slice firstState.start secondState.current firstState.program)
+                    firstState.line
                 )
-            , newState
+            , secondState
             )
 
-        error : Error.Type -> ( Result Error Token, State )
-        error err =
-            ( Err <| Error.error state.line err
-            , newState
+        error : Error.Type -> State -> State -> ( Result Error Token, State )
+        error err firstState secondState =
+            ( Err <| Error.error firstState.line err
+            , secondState
             )
+
+        ifMatches : String -> Token.Type -> Token.Type -> State -> ( Result Error Token, State )
+        ifMatches nextChar then_ else_ firstState =
+            let
+                ( matches, secondState ) =
+                    match nextChar firstState
+            in
+            if matches then
+                token then_ firstState secondState
+
+            else
+                token else_ firstState secondState
     in
     case currentChar of
         "(" ->
-            token LeftParen
+            token Token.LeftParen state state1
 
         ")" ->
-            token RightParen
+            token Token.RightParen state state1
 
         "{" ->
-            token LeftBrace
+            token Token.LeftBrace state state1
 
         "}" ->
-            token RightBrace
+            token Token.RightBrace state state1
 
         "," ->
-            token Comma
+            token Token.Comma state state1
 
         "." ->
-            token Dot
+            token Token.Dot state state1
 
         "-" ->
-            token Minus
+            token Token.Minus state state1
 
         "+" ->
-            token Plus
+            token Token.Plus state state1
 
         ";" ->
-            token Semicolon
+            token Token.Semicolon state state1
 
         "*" ->
-            token Star
+            token Token.Star state state1
+
+        "!" ->
+            ifMatches "=" Token.BangEqual Token.Bang state1
+
+        "=" ->
+            ifMatches "=" Token.EqualEqual Token.Equal state1
+
+        "<" ->
+            ifMatches "=" Token.LessEqual Token.Less state1
+
+        ">" ->
+            ifMatches "=" Token.GreaterEqual Token.Greater state1
 
         _ ->
-            error <| UnexpectedCharacter currentChar
+            error (UnexpectedCharacter currentChar) state state1
 
 
 advance : State -> ( String, State )
@@ -118,6 +142,24 @@ advance state =
     ( String.slice state.current newCurrent state.program
     , { state | current = newCurrent }
     )
+
+
+{-| only advance if the next char is the one we want
+-}
+match : String -> State -> ( Bool, State )
+match wantedChar state =
+    let
+        possiblyNewCurrent =
+            state.current + 1
+
+        nextChar =
+            String.slice state.current possiblyNewCurrent state.program
+    in
+    if isAtEnd state || nextChar /= wantedChar then
+        ( False, state )
+
+    else
+        ( True, { state | current = possiblyNewCurrent } )
 
 
 isAtEnd : State -> Bool

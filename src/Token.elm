@@ -1,4 +1,4 @@
-module Token exposing (Token, Type(..), toString, token, type_)
+module Token exposing (Token, Type(..), lexeme, toString, token, type_)
 
 
 type Token
@@ -10,10 +10,10 @@ type Token
 
 
 token : Type -> String -> Int -> Token
-token type__ lexeme line =
+token type__ lexeme_ line =
     Token
         { type_ = type__
-        , lexeme = lexeme
+        , lexeme = lexeme_
         , line = line
         }
 
@@ -189,3 +189,8 @@ toString (Token t) =
 type_ : Token -> Type
 type_ (Token t) =
     t.type_
+
+
+lexeme : Token -> String
+lexeme (Token t) =
+    t.lexeme

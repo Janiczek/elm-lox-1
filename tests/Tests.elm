@@ -1,7 +1,9 @@
-module Tests exposing (scannerTests)
+module Tests exposing (astPrinterTests, scannerTests)
 
+import AstPrinter
 import Error exposing (Error)
 import Expect
+import Expr
 import Scanner
 import Test exposing (Test)
 import Token exposing (Type(..))
@@ -87,4 +89,27 @@ scannerTests =
         [ okCases
             |> List.map runOkCase
             |> Test.describe "OK cases"
+        ]
+
+
+astPrinterTests : Test
+astPrinterTests =
+    Test.describe "AstPrinter.print"
+        [ Test.test "Example from book" <|
+            \() ->
+                Expr.Binary
+                    { left =
+                        Expr.Unary
+                            { operator = Token.token Minus "-" 1
+                            , right = Expr.LiteralNumber 123
+                            }
+                    , operator = Token.token Star "*" 1
+                    , right =
+                        Expr.Unary
+                            { operator = Token.token (Identifier "group") "group" 1
+                            , right = Expr.LiteralNumber 45.67
+                            }
+                    }
+                    |> AstPrinter.print
+                    |> Expect.equal "(* (- 123) (group 45.67))"
         ]

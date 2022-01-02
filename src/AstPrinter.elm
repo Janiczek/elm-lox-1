@@ -33,6 +33,15 @@ print expr =
         Identifier identifier ->
             identifier
 
+        False_ ->
+            "false"
+
+        True_ ->
+            "true"
+
+        Nil ->
+            "nil"
+
 
 parenthesize : String -> List Expr -> String
 parenthesize head exprs =

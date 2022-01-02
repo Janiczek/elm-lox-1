@@ -1,4 +1,15 @@
-module Token exposing (Token, Type(..), lexeme, toString, token, type_)
+module Token exposing
+    ( Token
+    , Type(..)
+    , getNumber
+    , getString
+    , isNumber
+    , isString
+    , lexeme
+    , toString
+    , token
+    , type_
+    )
 
 
 type Token
@@ -44,7 +55,7 @@ type Type
     | And
     | Class
     | Else
-    | False
+    | False_
     | Fun
     | For
     | If
@@ -54,7 +65,7 @@ type Type
     | Return
     | Super
     | This
-    | True
+    | True_
     | Var
     | While
     | EOF
@@ -138,7 +149,7 @@ typeToString type__ =
         Else ->
             "Else"
 
-        False ->
+        False_ ->
             "False"
 
         Fun ->
@@ -168,7 +179,7 @@ typeToString type__ =
         This ->
             "This"
 
-        True ->
+        True_ ->
             "True"
 
         Var ->
@@ -194,3 +205,43 @@ type_ (Token t) =
 lexeme : Token -> String
 lexeme (Token t) =
     t.lexeme
+
+
+isNumber : Token -> Bool
+isNumber (Token t) =
+    case t.type_ of
+        Number _ ->
+            True
+
+        _ ->
+            False
+
+
+isString : Token -> Bool
+isString (Token t) =
+    case t.type_ of
+        String _ ->
+            True
+
+        _ ->
+            False
+
+
+getNumber : Token -> Maybe Float
+getNumber (Token t) =
+    case t.type_ of
+        Number n ->
+            Just n
+
+        _ ->
+            Nothing
+
+
+getString : Token -> Maybe String
+getString (Token t) =
+    case t.type_ of
+        String str ->
+            Just str
+
+        _ ->
+            Nothing

@@ -2,7 +2,7 @@ module Scanner exposing (scanTokens)
 
 import Dict exposing (Dict)
 import Error exposing (Bug(..), Error, Type(..))
-import Token exposing (Token)
+import Token exposing (Token, Type(..))
 
 
 type alias State =
@@ -30,7 +30,7 @@ scanTokens program =
         go state errors tokens =
             if isAtEnd state then
                 if List.isEmpty errors then
-                    Ok <| Token.token Token.EOF "" state.line :: tokens
+                    Ok <| Token.token EOF "" state.line :: tokens
 
                 else
                     Err errors
@@ -69,7 +69,7 @@ scanToken state =
         ( currentChar, state1 ) =
             advance state
 
-        ifMatches : String -> Token.Type -> Token.Type -> State -> ( Result Error (Maybe Token), State )
+        ifMatches : String -> Type -> Type -> State -> ( Result Error (Maybe Token), State )
         ifMatches nextChar then_ else_ firstState =
             let
                 ( matches, secondState ) =
@@ -87,46 +87,46 @@ scanToken state =
     in
     case currentChar of
         "(" ->
-            token Token.LeftParen state state1
+            token LeftParen state state1
 
         ")" ->
-            token Token.RightParen state state1
+            token RightParen state state1
 
         "{" ->
-            token Token.LeftBrace state state1
+            token LeftBrace state state1
 
         "}" ->
-            token Token.RightBrace state state1
+            token RightBrace state state1
 
         "," ->
-            token Token.Comma state state1
+            token Comma state state1
 
         "." ->
-            token Token.Dot state state1
+            token Dot state state1
 
         "-" ->
-            token Token.Minus state state1
+            token Minus state state1
 
         "+" ->
-            token Token.Plus state state1
+            token Plus state state1
 
         ";" ->
-            token Token.Semicolon state state1
+            token Semicolon state state1
 
         "*" ->
-            token Token.Star state state1
+            token Star state state1
 
         "!" ->
-            ifMatches "=" Token.BangEqual Token.Bang state1
+            ifMatches "=" BangEqual Bang state1
 
         "=" ->
-            ifMatches "=" Token.EqualEqual Token.Equal state1
+            ifMatches "=" EqualEqual Equal state1
 
         "<" ->
-            ifMatches "=" Token.LessEqual Token.Less state1
+            ifMatches "=" LessEqual Less state1
 
         ">" ->
-            ifMatches "=" Token.GreaterEqual Token.Greater state1
+            ifMatches "=" GreaterEqual Greater state1
 
         "/" ->
             let
@@ -138,7 +138,7 @@ scanToken state =
                 ( Ok Nothing, skipUntilNewline state2 )
 
             else
-                token Token.Slash state1 state2
+                token Slash state1 state2
 
         " " ->
             nothing
@@ -318,7 +318,7 @@ string stateAfterStartQuote =
                     stateAfterStartQuote.program
         in
         token
-            (Token.String contents)
+            (String contents)
             stateAfterStartQuote
             stateAfterEndQuote
 
@@ -352,7 +352,7 @@ number stateAfterFirstNumber =
     case number_ of
         Just float ->
             token
-                (Token.Number float)
+                (Number float)
                 stateAfterFirstNumber
                 stateAfterPossiblyDecimalPart
 
@@ -363,24 +363,24 @@ number stateAfterFirstNumber =
                 stateAfterPossiblyDecimalPart
 
 
-reservedWords : Dict String Token.Type
+reservedWords : Dict String Type
 reservedWords =
-    [ ( "and", Token.And )
-    , ( "class", Token.Class )
-    , ( "else", Token.Else )
-    , ( "false", Token.False )
-    , ( "for", Token.For )
-    , ( "fun", Token.Fun )
-    , ( "if", Token.If )
-    , ( "nil", Token.Nil )
-    , ( "or", Token.Or )
-    , ( "print", Token.Print )
-    , ( "return", Token.Return )
-    , ( "super", Token.Super )
-    , ( "this", Token.This )
-    , ( "true", Token.True )
-    , ( "var", Token.Var )
-    , ( "while", Token.While )
+    [ ( "and", And )
+    , ( "class", Class )
+    , ( "else", Else )
+    , ( "false", False_ )
+    , ( "for", For )
+    , ( "fun", Fun )
+    , ( "if", If )
+    , ( "nil", Nil )
+    , ( "or", Or )
+    , ( "print", Print )
+    , ( "return", Return )
+    , ( "super", Super )
+    , ( "this", This )
+    , ( "true", True_ )
+    , ( "var", Var )
+    , ( "while", While )
     ]
         |> Dict.fromList
 
@@ -398,9 +398,9 @@ identifier stateAfterFirstLetter =
                 stateAfterIdentifierChars.current
                 stateAfterFirstLetter.program
 
-        type_ : Token.Type
+        type_ : Type
         type_ =
             Dict.get text reservedWords
-                |> Maybe.withDefault (Token.Identifier text)
+                |> Maybe.withDefault (Identifier text)
     in
     token type_ stateAfterFirstLetter stateAfterIdentifierChars

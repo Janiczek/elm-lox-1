@@ -92,9 +92,15 @@ scannerTests =
         ]
 
 
+
+-- TODO parser tests
+
+
 astPrinterTests : Test
 astPrinterTests =
     Test.describe "AstPrinter.print"
+        -- TODO some more?
+        -- TODO perhaps make the input the actual source code string?
         [ Test.test "Example from book" <|
             \() ->
                 Expr.Binary

@@ -6,8 +6,10 @@ module Token exposing
     , isNumber
     , isString
     , lexeme
+    , line
     , toString
     , token
+    , typeToString
     , type_
     )
 
@@ -21,11 +23,11 @@ type Token
 
 
 token : Type -> String -> Int -> Token
-token type__ lexeme_ line =
+token type__ lexeme_ line_ =
     Token
         { type_ = type__
         , lexeme = lexeme_
-        , line = line
+        , line = line_
         }
 
 
@@ -245,3 +247,8 @@ getString (Token t) =
 
         _ ->
             Nothing
+
+
+line : Token -> Int
+line (Token t) =
+    t.line

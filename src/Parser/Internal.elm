@@ -1,6 +1,5 @@
 module Parser.Internal exposing
-    ( Error(..)
-    , Parser
+    ( Parser
     , Step(..)
     , andThen
     , chompIf
@@ -14,35 +13,41 @@ module Parser.Internal exposing
     , succeed
     )
 
--- Parser working on arbitrary token types
+{-| Parser working on arbitrary token types
+-}
+
+import Error exposing (Bug(..), Error, ParserError(..), Type(..))
+import Token exposing (Token)
 
 
-type Parser e t a
-    = Parser (List t -> Result (Error e) ( a, List t ))
+type Parser a
+    = Parser (List Token -> Result (List Error) ( a, List Token ))
 
 
-type Error e
-    = EmptyOneOf
-    | CustomError e
-
-
-run : Parser e t a -> List t -> Result (Error e) a
+run : Parser a -> List Token -> Result (List Error) a
 run (Parser parse) tokens =
     parse tokens
         |> Result.map Tuple.first
 
 
-succeed : a -> Parser e t a
+succeed : a -> Parser a
 succeed value =
     Parser <| \tokens -> Ok ( value, tokens )
 
 
-fail : e -> Parser e t a
+fail : Error.Type -> Parser a
 fail error =
-    Parser <| \_ -> Err (CustomError error)
+    Parser <|
+        \tokens ->
+            case tokens of
+                t :: _ ->
+                    Err [ Error.error (Token.line t) error ]
+
+                [] ->
+                    Debug.todo "Parser.Internal.fail (1) - no token to get the error line from, what to do?"
 
 
-map : (a -> b) -> Parser e t a -> Parser e t b
+map : (a -> b) -> Parser a -> Parser b
 map fn (Parser parse) =
     Parser <|
         \tokens ->
@@ -54,20 +59,20 @@ map fn (Parser parse) =
                     Ok ( fn a, rest )
 
 
-andMap : Parser e t a -> Parser e t (a -> b) -> Parser e t b
+andMap : Parser a -> Parser (a -> b) -> Parser b
 andMap parserA parserFn =
     parserFn
         |> andThen (\fn -> map fn parserA)
 
 
-map2 : (a -> b -> c) -> Parser e t a -> Parser e t b -> Parser e t c
+map2 : (a -> b -> c) -> Parser a -> Parser b -> Parser c
 map2 fn parserA parserB =
     succeed fn
         |> andMap parserA
         |> andMap parserB
 
 
-map3 : (a -> b -> c -> d) -> Parser e t a -> Parser e t b -> Parser e t c -> Parser e t d
+map3 : (a -> b -> c -> d) -> Parser a -> Parser b -> Parser c -> Parser d
 map3 fn parserA parserB parserC =
     succeed fn
         |> andMap parserA
@@ -75,7 +80,7 @@ map3 fn parserA parserB parserC =
         |> andMap parserC
 
 
-andThen : (a -> Parser e t b) -> Parser e t a -> Parser e t b
+andThen : (a -> Parser b) -> Parser a -> Parser b
 andThen fn (Parser parse) =
     Parser <|
         \tokens ->
@@ -91,7 +96,7 @@ andThen fn (Parser parse) =
                     nextParse rest
 
 
-chompIf_ : (t -> Bool) -> Parser e t (Maybe t)
+chompIf_ : (Token -> Bool) -> Parser (Maybe Token)
 chompIf_ isTokenAllowed =
     Parser <|
         \tokens ->
@@ -107,7 +112,7 @@ chompIf_ isTokenAllowed =
                         Ok ( Nothing, tokens )
 
 
-chompIf : (t -> Bool) -> e -> Parser e t t
+chompIf : (Token -> Bool) -> Error.Type -> Parser Token
 chompIf isTokenAllowed error =
     chompIf_ isTokenAllowed
         |> andThen (maybe identity error)
@@ -115,16 +120,21 @@ chompIf isTokenAllowed error =
 
 {-| Reports the last parser's error if needed
 -}
-oneOf : List (Parser e t a) -> Parser e t a
+oneOf : List (Parser a) -> Parser a
 oneOf parsers =
     Parser <| oneOfHelp parsers
 
 
-oneOfHelp : List (Parser e t a) -> List t -> Result (Error e) ( a, List t )
+oneOfHelp : List (Parser a) -> List Token -> Result (List Error) ( a, List Token )
 oneOfHelp parsers tokens =
     case parsers of
         [] ->
-            Err EmptyOneOf
+            case tokens of
+                t :: _ ->
+                    Err [ Error.error (Token.line t) (ParserError EmptyOneOf) ]
+
+                [] ->
+                    Debug.todo "Parser.Internal.fail (2) - no token to get the error line from, what to do?"
 
         (Parser parse) :: restOfParsers ->
             case parse tokens of
@@ -144,12 +154,12 @@ type Step state a
     | Done a
 
 
-loop : (state -> Parser e t (Step state a)) -> state -> Parser e t a
+loop : (state -> Parser (Step state a)) -> state -> Parser a
 loop callback state =
     Parser <| loopHelp callback state
 
 
-loopHelp : (state -> Parser e t (Step state a)) -> state -> List t -> Result (Error e) ( a, List t )
+loopHelp : (state -> Parser (Step state a)) -> state -> List Token -> Result (List Error) ( a, List Token )
 loopHelp callback state tokens =
     let
         (Parser parse) =
@@ -166,7 +176,7 @@ loopHelp callback state tokens =
             Ok ( val, newTokens )
 
 
-maybe : (a -> b) -> e -> Maybe a -> Parser e t b
+maybe : (a -> b) -> Error.Type -> Maybe a -> Parser b
 maybe fn err maybeToken =
     maybeToken
         |> Maybe.map (fn >> succeed)

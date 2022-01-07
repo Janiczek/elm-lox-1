@@ -1,26 +1,17 @@
 module Parser exposing (parseExpr)
 
+import Error exposing (ParserError(..), Type(..))
 import Expr exposing (Expr(..))
 import Parser.Internal as Parser exposing (Parser)
 import Token exposing (Token, Type(..))
 
 
-type alias LoxParser a =
-    Parser ParseError Token a
-
-
-type ParseError
-    = ExpectedToken Token.Type
-    | ExpectedNumber
-    | ExpectedString
-
-
-parseExpr : List Token -> Result (Parser.Error ParseError) Expr
+parseExpr : List Token -> Result (List Error.Error) Expr
 parseExpr tokens =
     Parser.run expression tokens
 
 
-expression : LoxParser Expr
+expression : Parser Expr
 expression =
     equality
 
@@ -40,9 +31,9 @@ binary left operator right =
 
 
 leftAssociativeBinop :
-    LoxParser Expr
+    Parser Expr
     -> (Token -> Bool)
-    -> LoxParser Expr
+    -> Parser Expr
 leftAssociativeBinop exprParser isTokenAllowed =
     exprParser
         |> Parser.andThen (Parser.loop (leftAssociativeBinopHelp isTokenAllowed))
@@ -51,7 +42,7 @@ leftAssociativeBinop exprParser isTokenAllowed =
 leftAssociativeBinopHelp :
     (Token -> Bool)
     -> Expr
-    -> LoxParser (Parser.Step Expr Expr)
+    -> Parser (Parser.Step Expr Expr)
 leftAssociativeBinopHelp isTokenAllowed leftExpr =
     Parser.chompIf_ isTokenAllowed
         |> Parser.andThen
@@ -69,35 +60,35 @@ leftAssociativeBinopHelp isTokenAllowed leftExpr =
             )
 
 
-equality : LoxParser Expr
+equality : Parser Expr
 equality =
     leftAssociativeBinop
         comparison
         (isSimpleToken [ BangEqual, EqualEqual ])
 
 
-comparison : LoxParser Expr
+comparison : Parser Expr
 comparison =
     leftAssociativeBinop
         term
         (isSimpleToken [ Greater, GreaterEqual, Less, LessEqual ])
 
 
-term : LoxParser Expr
+term : Parser Expr
 term =
     leftAssociativeBinop
         factor
         (isSimpleToken [ Minus, Plus ])
 
 
-factor : LoxParser Expr
+factor : Parser Expr
 factor =
     leftAssociativeBinop
         unary
         (isSimpleToken [ Slash, Star ])
 
 
-unary : LoxParser Expr
+unary : Parser Expr
 unary =
     Parser.chompIf_ (isSimpleToken [ Bang, Minus ])
         |> Parser.andThen
@@ -118,36 +109,36 @@ unary =
             )
 
 
-primary : LoxParser Expr
+primary : Parser Expr
 primary =
     Parser.oneOf
         [ Parser.chompIf
             (isSimpleToken [ Token.False_ ])
-            (ExpectedToken Token.False_)
+            (ParserError (ExpectedToken Token.False_))
             |> Parser.map (\_ -> Expr.False_)
         , Parser.chompIf
             (isSimpleToken [ Token.True_ ])
-            (ExpectedToken Token.True_)
+            (ParserError (ExpectedToken Token.True_))
             |> Parser.map (\_ -> Expr.True_)
         , Parser.chompIf
             (isSimpleToken [ Token.Nil ])
-            (ExpectedToken Token.Nil)
+            (ParserError (ExpectedToken Token.Nil))
             |> Parser.map (\_ -> Expr.Nil)
-        , Parser.chompIf Token.isNumber ExpectedNumber
+        , Parser.chompIf Token.isNumber (ParserError ExpectedNumber)
             |> Parser.map Token.getNumber
-            |> Parser.andThen (Parser.maybe LiteralNumber ExpectedNumber)
-        , Parser.chompIf Token.isString ExpectedString
+            |> Parser.andThen (Parser.maybe LiteralNumber (ParserError ExpectedNumber))
+        , Parser.chompIf Token.isString (ParserError ExpectedString)
             |> Parser.map Token.getString
-            |> Parser.andThen (Parser.maybe LiteralString ExpectedString)
+            |> Parser.andThen (Parser.maybe LiteralString (ParserError ExpectedString))
         , Parser.map3
             (\_ expr _ -> Grouping expr)
             (Parser.chompIf
                 (isSimpleToken [ LeftParen ])
-                (ExpectedToken LeftParen)
+                (ParserError (ExpectedToken LeftParen))
             )
             expression
             (Parser.chompIf
                 (isSimpleToken [ RightParen ])
-                (ExpectedToken RightParen)
+                (ParserError (ExpectedToken RightParen))
             )
         ]

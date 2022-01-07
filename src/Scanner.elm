@@ -1,7 +1,7 @@
 module Scanner exposing (scanTokens)
 
 import Dict exposing (Dict)
-import Error exposing (Bug(..), Error, Type(..))
+import Error exposing (Bug(..), Error, ScannerError(..), Type(..))
 import Token exposing (Token, Type(..))
 
 
@@ -165,7 +165,7 @@ scanToken state =
 
             else
                 -- fall through
-                error (UnexpectedCharacter currentChar) state state1
+                error (ScannerError <| UnexpectedCharacter currentChar) state state1
 
 
 isDigit : String -> Bool
@@ -302,7 +302,7 @@ string stateAfterStartQuote =
             skipWithNewlineHandlingUntil "\"" stateAfterStartQuote
     in
     if isAtEnd stateAfterContents then
-        error UnterminatedString stateAfterStartQuote stateAfterContents
+        error (ScannerError UnterminatedString) stateAfterStartQuote stateAfterContents
 
     else
         let

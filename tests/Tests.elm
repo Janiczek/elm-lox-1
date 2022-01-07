@@ -52,7 +52,7 @@ scannerTests =
             , ( "Reserved word: and", "and", [ And ] )
             , ( "Reserved word: class", "class", [ Class ] )
             , ( "Reserved word: else", "else", [ Else ] )
-            , ( "Reserved word: false", "false", [ Token.False ] )
+            , ( "Reserved word: false", "false", [ False_ ] )
             , ( "Reserved word: fun", "fun", [ Fun ] )
             , ( "Reserved word: for", "for", [ For ] )
             , ( "Reserved word: if", "if", [ If ] )
@@ -62,7 +62,7 @@ scannerTests =
             , ( "Reserved word: return", "return", [ Return ] )
             , ( "Reserved word: super", "super", [ Super ] )
             , ( "Reserved word: this", "this", [ This ] )
-            , ( "Reserved word: true", "true", [ Token.True ] )
+            , ( "Reserved word: true", "true", [ True_ ] )
             , ( "Reserved word: var", "var", [ Var ] )
             , ( "Reserved word: while", "while", [ While ] )
             ]

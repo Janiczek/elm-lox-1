@@ -1,9 +1,12 @@
 port module Main exposing (main)
 
+import AstPrinter
 import Error exposing (Error)
+import Expr exposing (Expr)
+import Parser
 import Scanner
 import Task
-import Token exposing (Token)
+import Token
 
 
 port readFile : String -> Cmd msg
@@ -88,9 +91,10 @@ runAndRepeat input =
     let
         _ =
             case run input of
-                Ok tokens ->
-                    tokens
-                        |> Debug.log "tokens"
+                Ok expr ->
+                    expr
+                        |> AstPrinter.print
+                        |> Debug.log "parsed as"
                         |> always ()
 
                 Err errors ->
@@ -101,9 +105,11 @@ runAndRepeat input =
     runPrompt
 
 
-run : String -> Result (List Error) (List Token)
+run : String -> Result (List Error) Expr
 run program =
-    Scanner.scanTokens program
+    program
+        |> Scanner.scanTokens
+        |> Result.andThen Parser.parseExpr
 
 
 subscriptions : Model -> Sub Msg
@@ -140,12 +146,10 @@ update msg model =
 
                             Just contents ->
                                 case run contents of
-                                    Ok tokens ->
+                                    Ok expr ->
                                         ( Done
-                                        , tokens
-                                            |> List.map (\token -> " - " ++ Token.toString token)
-                                            |> (\list -> "Tokens scanned:" :: list)
-                                            |> String.join "\n"
+                                        , expr
+                                            |> AstPrinter.print
                                             |> println
                                         )
 

@@ -1,11 +1,15 @@
 module Error exposing
     ( Bug(..)
     , Error
+    , ParserError(..)
+    , ScannerError(..)
     , Type(..)
     , error
     , locatedError
     , toString
     )
+
+import Token
 
 
 type Error
@@ -17,9 +21,21 @@ type Error
 
 
 type Type
+    = ScannerError ScannerError
+    | ParserError ParserError
+    | Bug Bug
+
+
+type ScannerError
     = UnexpectedCharacter String
     | UnterminatedString
-    | Bug Bug
+
+
+type ParserError
+    = EmptyOneOf
+    | ExpectedToken Token.Type
+    | ExpectedNumber
+    | ExpectedString
 
 
 type Bug
@@ -48,22 +64,46 @@ locatedError rec =
 typeToString : Type -> String
 typeToString type_ =
     case type_ of
-        UnexpectedCharacter char ->
-            "Unexpected character: "
-                ++ String.replace "\n" "\\n" char
-                ++ "."
+        ScannerError scannerError ->
+            let
+                string =
+                    case scannerError of
+                        UnexpectedCharacter char ->
+                            "Unexpected character: "
+                                ++ String.replace "\n" "\\n" char
+                                ++ "."
 
-        UnterminatedString ->
-            "Unterminated string"
+                        UnterminatedString ->
+                            "Unterminated string"
+            in
+            "[SCANNER] " ++ string
+
+        ParserError parserError ->
+            let
+                string =
+                    case parserError of
+                        EmptyOneOf ->
+                            "Empty oneOf"
+
+                        ExpectedToken tokenType ->
+                            "Expected token: " ++ Token.typeToString tokenType
+
+                        ExpectedNumber ->
+                            "Expected number"
+
+                        ExpectedString ->
+                            "Expected string"
+            in
+            "[PARSER] " ++ string
 
         Bug bug ->
             let
                 bugString =
                     case bug of
                         ScannedFloatCouldntBeConvertedFromString ->
-                            "scanned float couldn't be converted from string"
+                            "Scanned float couldn't be converted from string"
             in
-            "Bug: " ++ bugString
+            "[BUG] " ++ bugString
 
 
 toString : Error -> String

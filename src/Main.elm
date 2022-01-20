@@ -3,10 +3,12 @@ port module Main exposing (main)
 import AstPrinter
 import Error exposing (Error)
 import Expr exposing (Expr)
+import Interpreter
 import Parser
 import Scanner
 import Task
 import Token
+import Value exposing (Value)
 
 
 port readFile : String -> Cmd msg
@@ -92,10 +94,31 @@ runAndRepeat input =
         _ =
             case run input of
                 Ok expr ->
-                    expr
-                        |> AstPrinter.print
-                        |> Debug.log "parsed as"
-                        |> always ()
+                    let
+                        _ =
+                            expr
+                                |> AstPrinter.print
+                                |> Debug.log "parsed as"
+                    in
+                    let
+                        value =
+                            expr
+                                |> Interpreter.interpret
+                                |> Debug.log "interpreted as"
+                    in
+                    case value of
+                        Ok value_ ->
+                            let
+                                _ =
+                                    (Value.toString value_ ++ " : " ++ Value.type_ value_)
+                                        |> Debug.log "pretty printed as"
+                            in
+                            ()
+
+                        Err errors ->
+                            errors
+                                |> List.map (Error.toString >> Debug.log "err")
+                                |> always ()
 
                 Err errors ->
                     errors
@@ -108,7 +131,7 @@ runAndRepeat input =
 run : String -> Result (List Error) Expr
 run program =
     program
-        |> Scanner.scanTokens
+        |> Scanner.scan
         |> Result.andThen Parser.parseExpr
 
 

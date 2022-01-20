@@ -1,4 +1,4 @@
-module Scanner exposing (scanTokens)
+module Scanner exposing (scan)
 
 import Dict exposing (Dict)
 import Error exposing (Bug(..), Error, ScannerError(..), Type(..))
@@ -14,8 +14,8 @@ type alias State =
     }
 
 
-scanTokens : String -> Result (List Error) (List Token)
-scanTokens program =
+scan : String -> Result (List Error) (List Token)
+scan program =
     let
         initState : State
         initState =

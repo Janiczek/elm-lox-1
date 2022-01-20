@@ -1,6 +1,7 @@
 module Error exposing
     ( Bug(..)
     , Error
+    , InterpreterError(..)
     , ParserError(..)
     , ScannerError(..)
     , Type(..)
@@ -10,6 +11,7 @@ module Error exposing
     )
 
 import Token
+import Value exposing (Value)
 
 
 type Error
@@ -23,6 +25,7 @@ type Error
 type Type
     = ScannerError ScannerError
     | ParserError ParserError
+    | InterpreterError InterpreterError
     | Bug Bug
 
 
@@ -34,8 +37,17 @@ type ScannerError
 type ParserError
     = EmptyOneOf
     | ExpectedToken Token.Type
-    | ExpectedNumber
-    | ExpectedString
+    | ExpectedNumberP
+    | ExpectedStringP
+
+
+type InterpreterError
+    = UnexpectedUnaryOperator Token.Type
+    | UnexpectedBinaryOperator Token.Type
+    | ExpectedNumberI Value
+    | ExpectedStringI Value
+    | ExpectedNumberOrString Value
+    | ExpectedTruthy Value
 
 
 type Bug
@@ -88,13 +100,51 @@ typeToString type_ =
                         ExpectedToken tokenType ->
                             "Expected token: " ++ Token.typeToString tokenType
 
-                        ExpectedNumber ->
+                        ExpectedNumberP ->
                             "Expected number"
 
-                        ExpectedString ->
+                        ExpectedStringP ->
                             "Expected string"
             in
             "[PARSER] " ++ string
+
+        InterpreterError interpreterError ->
+            let
+                string =
+                    case interpreterError of
+                        UnexpectedUnaryOperator tokenType ->
+                            "Unexpected unary operator: "
+                                ++ Token.typeToString tokenType
+
+                        UnexpectedBinaryOperator tokenType ->
+                            "Unexpected binary operator: "
+                                ++ Token.typeToString tokenType
+
+                        ExpectedNumberI value ->
+                            "Expected number but got "
+                                ++ Value.type_ value
+                                ++ ": "
+                                ++ Value.toString value
+
+                        ExpectedStringI value ->
+                            "Expected string but got "
+                                ++ Value.type_ value
+                                ++ ": "
+                                ++ Value.toString value
+
+                        ExpectedNumberOrString value ->
+                            "Expected number or string but got "
+                                ++ Value.type_ value
+                                ++ ": "
+                                ++ Value.toString value
+
+                        ExpectedTruthy value ->
+                            "Expected truthy value but got "
+                                ++ Value.type_ value
+                                ++ ": "
+                                ++ Value.toString value
+            in
+            "[INTERPRETER] " ++ string
 
         Bug bug ->
             let

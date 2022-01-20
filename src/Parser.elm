@@ -124,12 +124,12 @@ primary =
             (isSimpleToken [ Token.Nil ])
             (ParserError (ExpectedToken Token.Nil))
             |> Parser.map (\_ -> Expr.Nil)
-        , Parser.chompIf Token.isNumber (ParserError ExpectedNumber)
+        , Parser.chompIf Token.isNumber (ParserError ExpectedNumberP)
             |> Parser.map Token.getNumber
-            |> Parser.andThen (Parser.maybe LiteralNumber (ParserError ExpectedNumber))
-        , Parser.chompIf Token.isString (ParserError ExpectedString)
+            |> Parser.andThen (Parser.maybe LiteralNumber (ParserError ExpectedNumberP))
+        , Parser.chompIf Token.isString (ParserError ExpectedStringP)
             |> Parser.map Token.getString
-            |> Parser.andThen (Parser.maybe LiteralString (ParserError ExpectedString))
+            |> Parser.andThen (Parser.maybe LiteralString (ParserError ExpectedStringP))
         , Parser.map3
             (\_ expr _ -> Grouping expr)
             (Parser.chompIf

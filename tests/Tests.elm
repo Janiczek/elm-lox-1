@@ -79,11 +79,11 @@ scannerTests =
             Test.test label <|
                 \() ->
                     input
-                        |> Scanner.scanTokens
+                        |> Scanner.scan
                         |> Result.map (List.map Token.type_)
                         |> Expect.equal (Ok (output ++ [ EOF ]))
     in
-    Test.describe "Scanner.scanTokens"
+    Test.describe "Scanner.scan"
         -- TODO some tests that show how newline and token.line handling works
         -- TODO EOF
         [ okCases

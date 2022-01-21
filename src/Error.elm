@@ -6,6 +6,7 @@ module Error exposing
     , ScannerError(..)
     , Type(..)
     , error
+    , isInterpreterError
     , locatedError
     , toString
     )
@@ -164,3 +165,19 @@ toString (Error { line, where_, type_ }) =
         ++ Maybe.withDefault "" where_
         ++ ": "
         ++ typeToString type_
+
+
+isInterpreterError : Error -> Bool
+isInterpreterError (Error { type_ }) =
+    case type_ of
+        InterpreterError _ ->
+            True
+
+        ScannerError _ ->
+            False
+
+        ParserError _ ->
+            False
+
+        Bug _ ->
+            False

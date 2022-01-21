@@ -93,32 +93,13 @@ runAndRepeat input =
     let
         _ =
             case run input of
-                Ok expr ->
+                Ok value ->
                     let
                         _ =
-                            expr
-                                |> AstPrinter.print
-                                |> Debug.log "parsed as"
+                            (Value.toString value ++ " : " ++ Value.type_ value)
+                                |> Debug.log "pretty printed as"
                     in
-                    let
-                        value =
-                            expr
-                                |> Interpreter.interpret
-                                |> Debug.log "interpreted as"
-                    in
-                    case value of
-                        Ok value_ ->
-                            let
-                                _ =
-                                    (Value.toString value_ ++ " : " ++ Value.type_ value_)
-                                        |> Debug.log "pretty printed as"
-                            in
-                            ()
-
-                        Err errors ->
-                            errors
-                                |> List.map (Error.toString >> Debug.log "err")
-                                |> always ()
+                    ()
 
                 Err errors ->
                     errors
@@ -128,11 +109,12 @@ runAndRepeat input =
     runPrompt
 
 
-run : String -> Result (List Error) Expr
+run : String -> Result (List Error) Value
 run program =
     program
         |> Scanner.scan
         |> Result.andThen Parser.parseExpr
+        |> Result.andThen Interpreter.interpret
 
 
 subscriptions : Model -> Sub Msg
@@ -169,17 +151,26 @@ update msg model =
 
                             Just contents ->
                                 case run contents of
-                                    Ok expr ->
+                                    Ok value ->
                                         ( Done
-                                        , expr
-                                            |> AstPrinter.print
+                                        , value
+                                            |> (\v -> Value.toString v ++ " : " ++ Value.type_ v)
                                             |> println
                                         )
 
                                     Err errors ->
+                                        let
+                                            errorCode : Int
+                                            errorCode =
+                                                if List.any Error.isInterpreterError errors then
+                                                    70
+
+                                                else
+                                                    65
+                                        in
                                         ( Done
                                         , exitWithMessage
-                                            ( 65
+                                            ( errorCode
                                             , errors
                                                 |> List.map Error.toString
                                                 |> String.join "\n"

@@ -1,14 +1,62 @@
-module Parser exposing (parseExpr)
+module Parser exposing (parseExpr, parseProgram)
 
-import Error exposing (ParserError(..), Type(..))
+import Error exposing (Error, ParserError(..), Type(..))
 import Expr exposing (Expr(..))
 import Parser.Internal as Parser exposing (Parser)
+import Stmt exposing (Stmt)
 import Token exposing (Token, Type(..))
 
 
-parseExpr : List Token -> Result (List Error.Error) Expr
+parseProgram : List Token -> Result Error (List Stmt)
+parseProgram tokens =
+    Parser.run program tokens
+
+
+parseExpr : List Token -> Result Error Expr
 parseExpr tokens =
     Parser.run expression tokens
+
+
+
+-- PROGRAM
+
+
+program : Parser (List Stmt)
+program =
+    Parser.succeed identity
+        |> Parser.keep (Parser.many statement)
+        |> Parser.skip Parser.end
+
+
+
+-- STATEMENT
+
+
+statement : Parser Stmt
+statement =
+    Parser.oneOf
+        [ printStatement
+        , exprStatement
+        ]
+
+
+printStatement : Parser Stmt
+printStatement =
+    Parser.succeed Stmt.Print
+        |> Parser.skip (Parser.token Token.Print)
+        |> Parser.keep expression
+        |> Parser.skip (Parser.token Token.Semicolon)
+
+
+exprStatement : Parser Stmt
+exprStatement =
+    Parser.succeed Stmt.ExprStmt
+        |> Parser.keep expression
+        |> Parser.skip (Parser.token Token.Semicolon)
+
+
+
+-- EXPRESSION
 
 
 expression : Parser Expr
@@ -112,17 +160,11 @@ unary =
 primary : Parser Expr
 primary =
     Parser.oneOf
-        [ Parser.chompIf
-            (isSimpleToken [ Token.False_ ])
-            (ParserError (ExpectedToken Token.False_))
+        [ Parser.token Token.False_
             |> Parser.map (\_ -> Expr.False_)
-        , Parser.chompIf
-            (isSimpleToken [ Token.True_ ])
-            (ParserError (ExpectedToken Token.True_))
+        , Parser.token Token.True_
             |> Parser.map (\_ -> Expr.True_)
-        , Parser.chompIf
-            (isSimpleToken [ Token.Nil ])
-            (ParserError (ExpectedToken Token.Nil))
+        , Parser.token Token.Nil
             |> Parser.map (\_ -> Expr.Nil)
         , Parser.chompIf Token.isNumber (ParserError ExpectedNumberP)
             |> Parser.map Token.getNumber
@@ -130,15 +172,8 @@ primary =
         , Parser.chompIf Token.isString (ParserError ExpectedStringP)
             |> Parser.map Token.getString
             |> Parser.andThen (Parser.maybe LiteralString (ParserError ExpectedStringP))
-        , Parser.map3
-            (\_ expr _ -> Grouping expr)
-            (Parser.chompIf
-                (isSimpleToken [ LeftParen ])
-                (ParserError (ExpectedToken LeftParen))
-            )
-            expression
-            (Parser.chompIf
-                (isSimpleToken [ RightParen ])
-                (ParserError (ExpectedToken RightParen))
-            )
+        , Parser.succeed Grouping
+            |> Parser.skip (Parser.token LeftParen)
+            |> Parser.keep expression
+            |> Parser.skip (Parser.token RightParen)
         ]

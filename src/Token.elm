@@ -70,7 +70,6 @@ type Type
     | True_
     | Var
     | While
-    | EOF
 
 
 typeToString : Type -> String
@@ -189,9 +188,6 @@ typeToString type__ =
 
         While ->
             "While"
-
-        EOF ->
-            "EOF"
 
 
 toString : Token -> String

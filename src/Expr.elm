@@ -1,6 +1,6 @@
 module Expr exposing (Expr(..))
 
-import Token exposing (Token, Type(..))
+import Token exposing (Token)
 
 
 type Expr

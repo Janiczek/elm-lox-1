@@ -1,33 +1,82 @@
-module Interpreter exposing (interpret)
+module Interpreter exposing (interpretExpr, interpretProgram)
 
+import Effect exposing (Effect(..))
 import Error exposing (Error, InterpreterError(..), Type(..))
 import Expr exposing (Expr(..))
+import Stmt exposing (Stmt(..))
 import Token exposing (Token)
 import Value exposing (Value(..))
 
 
-interpret : Expr -> Result (List Error) Value
-interpret expr =
+interpretProgram : List Stmt -> Result ( Error, List Effect ) (List Effect)
+interpretProgram stmts_ =
+    let
+        go effs stmts =
+            case stmts of
+                [] ->
+                    Ok <| List.reverse effs
+
+                stmt :: rest ->
+                    case interpretStmt stmt of
+                        Err err ->
+                            Err ( err, effs )
+
+                        Ok Nothing ->
+                            go effs rest
+
+                        Ok (Just eff) ->
+                            go (eff :: effs) rest
+    in
+    go [] stmts_
+
+
+interpretStmt : Stmt -> Result Error (Maybe Effect)
+interpretStmt stmt =
+    case stmt of
+        ExprStmt expr ->
+            interpretExpr expr
+                |> Result.map (\_ -> Nothing)
+
+        Print expr ->
+            interpretExpr expr
+                -- TODO if interpretExpr later returns effects too, we need to not drop them here
+                |> Result.map (.value >> Value.toString >> PrintEff >> Just)
+
+
+interpretExpr : Expr -> Result Error { value : Value }
+interpretExpr expr =
+    {- TODO we'll likely later add effects / ... to the `value` returned record
+       if not, we can simplify a lot of things here!
+
+       When adding effects to the returned record please rename the `value` field
+       so that you can check if you need to _not throw away_ some effects from
+       children `interpretExpr` calls.
+    -}
+    let
+        toRec : Value -> { value : Value }
+        toRec value =
+            { value = value }
+    in
     case expr of
         Nil ->
-            Ok VNil
+            Ok <| toRec VNil
 
         False_ ->
-            Ok <| VBool False
+            Ok <| toRec <| VBool False
 
         True_ ->
-            Ok <| VBool True
+            Ok <| toRec <| VBool True
 
         LiteralString str ->
-            Ok <| VString str
+            Ok <| toRec <| VString str
 
         LiteralNumber float ->
-            Ok <| VFloat float
+            Ok <| toRec <| VFloat float
 
         Grouping e ->
-            interpret e
+            interpretExpr e
 
-        Identifier str ->
+        Identifier _ ->
             Debug.todo "interpret identifier"
 
         Unary { operator, right } ->
@@ -38,19 +87,20 @@ interpret expr =
             in
             case tokenType of
                 Token.Minus ->
-                    interpret right
-                        |> Result.andThen (floatNegate operator)
+                    interpretExpr right
+                        |> Result.andThen (.value >> floatNegate operator)
+                        |> Result.map toRec
 
                 Token.Bang ->
-                    interpret right
-                        |> Result.map boolNegate
+                    interpretExpr right
+                        |> Result.map (.value >> boolNegate >> toRec)
 
                 _ ->
                     Err
-                        [ Error.error
+                        (Error.error
                             (Token.line operator)
                             (InterpreterError <| UnexpectedUnaryOperator tokenType)
-                        ]
+                        )
 
         Binary { left, operator, right } ->
             let
@@ -58,145 +108,146 @@ interpret expr =
                 tokenType =
                     Token.type_ operator
 
-                numOp : (Float -> Float -> Float) -> Result (List Error) Value
+                numOp : (Float -> Float -> Float) -> Result Error Value
                 numOp op =
                     Result.map2
                         (\leftExpr rightExpr ->
-                            case ( leftExpr, rightExpr ) of
+                            case ( leftExpr.value, rightExpr.value ) of
                                 ( VFloat leftFloat, VFloat rightFloat ) ->
                                     Ok <| VFloat (op leftFloat rightFloat)
 
                                 ( _, VFloat _ ) ->
                                     -- left is faulty
                                     Err
-                                        [ Error.error
+                                        (Error.error
                                             (Token.line operator)
-                                            (InterpreterError <| ExpectedNumberI leftExpr)
-                                        ]
+                                            (InterpreterError <| ExpectedNumberI leftExpr.value)
+                                        )
 
                                 _ ->
                                     -- right is faulty
                                     Err
-                                        [ Error.error
+                                        (Error.error
                                             (Token.line operator)
-                                            (InterpreterError <| ExpectedNumberI rightExpr)
-                                        ]
+                                            (InterpreterError <| ExpectedNumberI rightExpr.value)
+                                        )
                         )
-                        (interpret left)
-                        (interpret right)
+                        (interpretExpr left)
+                        (interpretExpr right)
                         |> Result.andThen identity
 
-                comparisonOp : (Float -> Float -> Bool) -> Result (List Error) Value
+                comparisonOp : (Float -> Float -> Bool) -> Result Error Value
                 comparisonOp op =
                     Result.map2
                         (\leftExpr rightExpr ->
-                            case ( leftExpr, rightExpr ) of
+                            case ( leftExpr.value, rightExpr.value ) of
                                 ( VFloat leftFloat, VFloat rightFloat ) ->
                                     Ok <| VBool (op leftFloat rightFloat)
 
                                 ( _, VFloat _ ) ->
                                     -- left is faulty
                                     Err
-                                        [ Error.error
+                                        (Error.error
                                             (Token.line operator)
-                                            (InterpreterError <| ExpectedNumberI leftExpr)
-                                        ]
+                                            (InterpreterError <| ExpectedNumberI leftExpr.value)
+                                        )
 
                                 _ ->
                                     -- right is faulty
                                     Err
-                                        [ Error.error
+                                        (Error.error
                                             (Token.line operator)
-                                            (InterpreterError <| ExpectedNumberI rightExpr)
-                                        ]
+                                            (InterpreterError <| ExpectedNumberI rightExpr.value)
+                                        )
                         )
-                        (interpret left)
-                        (interpret right)
+                        (interpretExpr left)
+                        (interpretExpr right)
                         |> Result.andThen identity
 
-                equalityOp : (Value -> Value -> Bool) -> Result (List Error) Value
+                equalityOp : (Value -> Value -> Bool) -> Result Error Value
                 equalityOp op =
-                    Result.map2 op
-                        (interpret left)
-                        (interpret right)
+                    Result.map2 (\leftExpr rightExpr -> op leftExpr.value rightExpr.value)
+                        (interpretExpr left)
+                        (interpretExpr right)
                         |> Result.map VBool
             in
-            case tokenType of
-                Token.Minus ->
-                    numOp (-)
+            Result.map toRec <|
+                case tokenType of
+                    Token.Minus ->
+                        numOp (-)
 
-                Token.Slash ->
-                    numOp (/)
+                    Token.Slash ->
+                        numOp (/)
 
-                Token.Star ->
-                    numOp (*)
+                    Token.Star ->
+                        numOp (*)
 
-                Token.Greater ->
-                    comparisonOp (>)
+                    Token.Greater ->
+                        comparisonOp (>)
 
-                Token.GreaterEqual ->
-                    comparisonOp (>=)
+                    Token.GreaterEqual ->
+                        comparisonOp (>=)
 
-                Token.Less ->
-                    comparisonOp (<)
+                    Token.Less ->
+                        comparisonOp (<)
 
-                Token.LessEqual ->
-                    comparisonOp (<=)
+                    Token.LessEqual ->
+                        comparisonOp (<=)
 
-                Token.BangEqual ->
-                    equalityOp (/=)
+                    Token.BangEqual ->
+                        equalityOp (/=)
 
-                Token.EqualEqual ->
-                    equalityOp (==)
+                    Token.EqualEqual ->
+                        equalityOp (==)
 
-                Token.Plus ->
-                    -- Both (Float,Float) and (String,String) is valid
-                    Result.map2
-                        (\leftExpr rightExpr ->
-                            case ( leftExpr, rightExpr ) of
-                                ( VFloat leftFloat, VFloat rightFloat ) ->
-                                    Ok <| VFloat (leftFloat + rightFloat)
+                    Token.Plus ->
+                        -- Both (Float,Float) and (String,String) is valid
+                        Result.map2
+                            (\leftExpr rightExpr ->
+                                case ( leftExpr.value, rightExpr.value ) of
+                                    ( VFloat leftFloat, VFloat rightFloat ) ->
+                                        Ok <| VFloat (leftFloat + rightFloat)
 
-                                ( VString leftString, VString rightString ) ->
-                                    Ok <| VString (leftString ++ rightString)
+                                    ( VString leftString, VString rightString ) ->
+                                        Ok <| VString (leftString ++ rightString)
 
-                                ( VFloat _, _ ) ->
-                                    -- right is faulty
-                                    Err
-                                        [ Error.error
-                                            (Token.line operator)
-                                            (InterpreterError <| ExpectedNumberI rightExpr)
-                                        ]
+                                    ( VFloat _, _ ) ->
+                                        -- right is faulty
+                                        Err
+                                            (Error.error
+                                                (Token.line operator)
+                                                (InterpreterError <| ExpectedNumberI rightExpr.value)
+                                            )
 
-                                ( VString _, _ ) ->
-                                    -- right is faulty
-                                    Err
-                                        [ Error.error
-                                            (Token.line operator)
-                                            (InterpreterError <| ExpectedStringI rightExpr)
-                                        ]
+                                    ( VString _, _ ) ->
+                                        -- right is faulty
+                                        Err
+                                            (Error.error
+                                                (Token.line operator)
+                                                (InterpreterError <| ExpectedStringI rightExpr.value)
+                                            )
 
-                                _ ->
-                                    -- left is faulty
-                                    Err
-                                        [ Error.error
-                                            (Token.line operator)
-                                            (InterpreterError <| ExpectedNumberOrString leftExpr)
-                                        ]
-                        )
-                        (interpret left)
-                        (interpret right)
-                        |> Result.andThen identity
+                                    _ ->
+                                        -- left is faulty
+                                        Err
+                                            (Error.error
+                                                (Token.line operator)
+                                                (InterpreterError <| ExpectedNumberOrString leftExpr.value)
+                                            )
+                            )
+                            (interpretExpr left)
+                            (interpretExpr right)
+                            |> Result.andThen identity
 
-                _ ->
-                    Err
-                        [ Error.error
-                            (Token.line operator)
-                            (InterpreterError <| UnexpectedBinaryOperator tokenType)
-                        ]
+                    _ ->
+                        Err
+                            (Error.error
+                                (Token.line operator)
+                                (InterpreterError <| UnexpectedBinaryOperator tokenType)
+                            )
 
 
-floatNegate : Token -> Value -> Result (List Error) Value
+floatNegate : Token -> Value -> Result Error Value
 floatNegate operator value =
     case value of
         VFloat num ->
@@ -204,10 +255,10 @@ floatNegate operator value =
 
         _ ->
             Err
-                [ Error.error
+                (Error.error
                     (Token.line operator)
                     (InterpreterError <| ExpectedNumberI value)
-                ]
+                )
 
 
 boolNegate : Value -> Value

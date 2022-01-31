@@ -1,7 +1,7 @@
 module Tests exposing (astPrinterTests, scannerTests)
 
 import AstPrinter
-import Error exposing (Error)
+import Error
 import Expect
 import Expr
 import Scanner
@@ -81,11 +81,10 @@ scannerTests =
                     input
                         |> Scanner.scan
                         |> Result.map (List.map Token.type_)
-                        |> Expect.equal (Ok (output ++ [ EOF ]))
+                        |> Expect.equal (Ok output)
     in
     Test.describe "Scanner.scan"
         -- TODO some tests that show how newline and token.line handling works
-        -- TODO EOF
         [ okCases
             |> List.map runOkCase
             |> Test.describe "OK cases"

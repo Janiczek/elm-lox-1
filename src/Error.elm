@@ -40,6 +40,7 @@ type ParserError
     | ExpectedToken Token.Type
     | ExpectedNumberP
     | ExpectedStringP
+    | ExpectedEOF
 
 
 type InterpreterError
@@ -48,7 +49,6 @@ type InterpreterError
     | ExpectedNumberI Value
     | ExpectedStringI Value
     | ExpectedNumberOrString Value
-    | ExpectedTruthy Value
 
 
 type Bug
@@ -106,6 +106,9 @@ typeToString type_ =
 
                         ExpectedStringP ->
                             "Expected string"
+
+                        ExpectedEOF ->
+                            "Expected EOF"
             in
             "[PARSER] " ++ string
 
@@ -135,12 +138,6 @@ typeToString type_ =
 
                         ExpectedNumberOrString value ->
                             "Expected number or string but got "
-                                ++ Value.type_ value
-                                ++ ": "
-                                ++ Value.toString value
-
-                        ExpectedTruthy value ->
-                            "Expected truthy value but got "
                                 ++ Value.type_ value
                                 ++ ": "
                                 ++ Value.toString value

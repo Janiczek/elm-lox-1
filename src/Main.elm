@@ -1,14 +1,10 @@
 port module Main exposing (main)
 
-import AstPrinter
+import Effect exposing (Effect(..))
 import Error exposing (Error)
-import Expr exposing (Expr)
 import Interpreter
 import Parser
 import Scanner
-import Task
-import Token
-import Value exposing (Value)
 
 
 port readFile : String -> Cmd msg
@@ -93,15 +89,20 @@ runAndRepeat input =
     let
         _ =
             case run input of
-                Ok value ->
+                Ok effects ->
                     let
                         _ =
-                            (Value.toString value ++ " : " ++ Value.type_ value)
-                                |> Debug.log "pretty printed as"
+                            effects
+                                |> List.foldl (\eff () -> runEffect eff) ()
                     in
                     ()
 
-                Err errors ->
+                Err ( errors, effects ) ->
+                    let
+                        _ =
+                            effects
+                                |> List.foldl (\eff () -> runEffect eff) ()
+                    in
                     errors
                         |> List.map (Error.toString >> Debug.log "err")
                         |> always ()
@@ -109,12 +110,28 @@ runAndRepeat input =
     runPrompt
 
 
-run : String -> Result (List Error) Value
+run : String -> Result ( List Error, List Effect ) (List Effect)
 run program =
+    let
+        scan =
+            Scanner.scan
+
+        parse =
+            Parser.parseProgram
+                >> Result.mapError List.singleton
+
+        addEffects =
+            Result.mapError (\errs -> ( errs, [] ))
+
+        interpret =
+            Interpreter.interpretProgram
+                >> Result.mapError (Tuple.mapFirst List.singleton)
+    in
     program
-        |> Scanner.scan
-        |> Result.andThen Parser.parseExpr
-        |> Result.andThen Interpreter.interpret
+        |> scan
+        |> Result.andThen parse
+        |> addEffects
+        |> Result.andThen interpret
 
 
 subscriptions : Model -> Sub Msg
@@ -140,52 +157,7 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         ReadFileResult read ->
-            case model of
-                WaitingForFileContents waiting ->
-                    if waiting.filename == read.filename then
-                        case read.contents of
-                            Nothing ->
-                                ( Done
-                                , exitWithMessage ( 64, "Couldn't read file: " ++ read.filename )
-                                )
-
-                            Just contents ->
-                                case run contents of
-                                    Ok value ->
-                                        ( Done
-                                        , value
-                                            |> (\v -> Value.toString v ++ " : " ++ Value.type_ v)
-                                            |> println
-                                        )
-
-                                    Err errors ->
-                                        let
-                                            errorCode : Int
-                                            errorCode =
-                                                if List.any Error.isInterpreterError errors then
-                                                    70
-
-                                                else
-                                                    65
-                                        in
-                                        ( Done
-                                        , exitWithMessage
-                                            ( errorCode
-                                            , errors
-                                                |> List.map Error.toString
-                                                |> String.join "\n"
-                                            )
-                                        )
-
-                    else
-                        -- throwing read file contents away
-                        ( model, Cmd.none )
-
-                ReplWaitingForInput ->
-                    ( model, Cmd.none )
-
-                Done ->
-                    ( model, Cmd.none )
+            readFileResult_ read model
 
         GotUserInput input ->
             if String.isEmpty input then
@@ -193,3 +165,70 @@ update msg model =
 
             else
                 runAndRepeat input
+
+
+runEffect : Effect -> ()
+runEffect effect =
+    case effect of
+        PrintEff string ->
+            let
+                _ =
+                    Debug.log string "[PRINT]"
+            in
+            ()
+
+
+readFileResult_ : { filename : String, contents : Maybe String } -> Model -> ( Model, Cmd Msg )
+readFileResult_ read model =
+    case model of
+        WaitingForFileContents waiting ->
+            if waiting.filename == read.filename then
+                case read.contents of
+                    Nothing ->
+                        ( Done
+                        , exitWithMessage ( 64, "Couldn't read file: " ++ read.filename )
+                        )
+
+                    Just contents ->
+                        case run contents of
+                            Ok effects ->
+                                let
+                                    _ =
+                                        effects
+                                            |> List.foldl (\eff () -> runEffect eff) ()
+                                in
+                                ( Done, Cmd.none )
+
+                            Err ( errors, effects ) ->
+                                let
+                                    _ =
+                                        effects
+                                            |> List.foldl (\eff () -> runEffect eff) ()
+                                in
+                                let
+                                    errorCode : Int
+                                    errorCode =
+                                        if List.any Error.isInterpreterError errors then
+                                            70
+
+                                        else
+                                            65
+                                in
+                                ( Done
+                                , exitWithMessage
+                                    ( errorCode
+                                    , errors
+                                        |> List.map Error.toString
+                                        |> String.join "\n"
+                                    )
+                                )
+
+            else
+                -- throwing read file contents away
+                ( model, Cmd.none )
+
+        ReplWaitingForInput ->
+            ( model, Cmd.none )
+
+        Done ->
+            ( model, Cmd.none )

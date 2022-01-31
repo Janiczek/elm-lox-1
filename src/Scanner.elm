@@ -30,7 +30,7 @@ scan program =
         go state errors tokens =
             if isAtEnd state then
                 if List.isEmpty errors then
-                    Ok <| Token.token EOF "" state.line :: tokens
+                    Ok tokens
 
                 else
                     Err errors

@@ -4,6 +4,16 @@ import Elm from '../dist/elm.js';
 const args = process.argv.slice(2); // 0=node, 1=index.js
 const flags = {args};
 const app = Elm.Elm.Main.init({flags});
+const oldConsoleLog = console.log;
+console.log = function(...args) {
+  if (args.length !== 1 || typeof args[0] !== 'string') {
+    oldConsoleLog(...args);
+  } else if (args[0].endsWith('"[PRINT]"')) {
+    oldConsoleLog(args[0].slice(0,-11));
+  } else {
+    oldConsoleLog(args[0]);
+  }
+};
 const subscribe = (portName, fn) => {
   app.ports && app.ports[portName] && app.ports[portName].subscribe(fn);
 };

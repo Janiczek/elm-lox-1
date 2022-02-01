@@ -45,7 +45,7 @@ print expr =
         Assign { names, value } ->
             parenthesize
                 "="
-                (List.map Identifier names)
+                (List.map Identifier names ++ [ value ])
 
 
 parenthesize : String -> List Expr -> String

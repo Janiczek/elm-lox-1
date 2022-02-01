@@ -50,6 +50,7 @@ type InterpreterError
     | ExpectedNumberI Value
     | ExpectedStringI Value
     | ExpectedNumberOrString Value
+    | UnknownIdentifier String
 
 
 type Bug
@@ -145,6 +146,9 @@ typeToString type_ =
                                 ++ Value.type_ value
                                 ++ ": "
                                 ++ Value.toString value
+
+                        UnknownIdentifier name ->
+                            "Unknown identifier: " ++ name
             in
             "[INTERPRETER] " ++ string
 

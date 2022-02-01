@@ -4,6 +4,7 @@ import Dict exposing (Dict)
 import Effect exposing (Effect(..))
 import Error exposing (Error, InterpreterError(..), Type(..))
 import Expr exposing (Expr(..))
+import Result.Extra
 import Stmt exposing (Stmt(..))
 import Token exposing (Token)
 import Value exposing (Value(..))
@@ -25,7 +26,7 @@ interpretProgram stmts_ =
                 stmt :: rest ->
                     case interpretStmt env stmt of
                         Err err ->
-                            Err ( err, effs )
+                            Err ( err, List.reverse effs )
 
                         Ok res ->
                             case res.effect of
@@ -285,6 +286,30 @@ interpretExpr env expr =
                             (Token.line operator)
                             (InterpreterError <| UnexpectedBinaryOperator tokenType)
                         )
+
+        Assign { names, value } ->
+            Result.map2
+                (\_ result ->
+                    List.foldl
+                        (\name acc -> { acc | env = Dict.insert name result.value acc.env })
+                        result
+                        names
+                )
+                (Result.Extra.combineMap (checkNameExists env) names)
+                (interpretExpr env value)
+
+
+checkNameExists : Env -> String -> Result Error ()
+checkNameExists env name =
+    if Dict.member name env then
+        Ok ()
+
+    else
+        Err
+            (Error.error
+                -1
+                (InterpreterError (UnknownIdentifier name))
+            )
 
 
 mapValue : (a -> a) -> { r | value : a } -> { r | value : a }

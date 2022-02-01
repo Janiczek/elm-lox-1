@@ -42,6 +42,7 @@ type ParserError
     | ExpectedStringP
     | ExpectedIdentifier
     | ExpectedEOF
+    | ExpectedNonemptyList
 
 
 type InterpreterError
@@ -114,6 +115,9 @@ typeToString type_ =
 
                         ExpectedEOF ->
                             "Expected EOF"
+
+                        ExpectedNonemptyList ->
+                            "Expected non-empty list"
             in
             "[PARSER] " ++ string
 

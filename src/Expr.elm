@@ -20,3 +20,7 @@ type Expr
         { operator : Token
         , right : Expr
         }
+    | Assign
+        { names : List String
+        , value : Expr
+        }

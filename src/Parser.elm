@@ -97,7 +97,29 @@ exprStatement =
 
 expression : Parser Expr
 expression =
-    equality
+    assignment
+
+
+assignment : Parser Expr
+assignment =
+    Parser.oneOf
+        [ Parser.succeed
+            (\( name, names ) value ->
+                Assign
+                    { names = name :: names
+                    , value = value
+                    }
+            )
+            |> Parser.keep
+                (Parser.many1
+                    (Parser.succeed identity
+                        |> Parser.keep identifier
+                        |> Parser.skip (Parser.token Token.Equal)
+                    )
+                )
+            |> Parser.keep (Parser.lazy (\() -> assignment))
+        , equality
+        ]
 
 
 isSimpleToken : List Token.Type -> Token -> Bool

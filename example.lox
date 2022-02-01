@@ -7,3 +7,13 @@ print a; // "nil".
 var x = 1;
 var y = 2;
 print x + y;
+
+var d = 2;
+var e;
+var f;
+var g;
+d = e = f = g = 1;
+print d;
+print e;
+print g = 2;
+print f == g;

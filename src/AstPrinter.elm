@@ -42,6 +42,11 @@ print expr =
         Nil ->
             "nil"
 
+        Assign { names, value } ->
+            parenthesize
+                "="
+                (List.map Identifier names)
+
 
 parenthesize : String -> List Expr -> String
 parenthesize head exprs =

@@ -112,10 +112,13 @@ runAndRepeat input =
 
 logList : String -> List a -> List a
 logList label list =
+    {-
+       list
+           |> List.reverse
+           |> List.map (Debug.log label)
+           |> List.reverse
+    -}
     list
-        |> List.reverse
-        |> List.map (Debug.log label)
-        |> List.reverse
 
 
 run : String -> Result ( List Error, List Effect ) (List Effect)

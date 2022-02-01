@@ -40,6 +40,7 @@ type ParserError
     | ExpectedToken Token.Type
     | ExpectedNumberP
     | ExpectedStringP
+    | ExpectedIdentifier
     | ExpectedEOF
 
 
@@ -106,6 +107,9 @@ typeToString type_ =
 
                         ExpectedStringP ->
                             "Expected string"
+
+                        ExpectedIdentifier ->
+                            "Expected identifier"
 
                         ExpectedEOF ->
                             "Expected EOF"

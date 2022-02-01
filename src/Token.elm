@@ -1,8 +1,10 @@
 module Token exposing
     ( Token
     , Type(..)
+    , getIdentifier
     , getNumber
     , getString
+    , isIdentifier
     , isNumber
     , isString
     , lexeme
@@ -225,6 +227,16 @@ isString (Token t) =
             False
 
 
+isIdentifier : Token -> Bool
+isIdentifier (Token t) =
+    case t.type_ of
+        Identifier _ ->
+            True
+
+        _ ->
+            False
+
+
 getNumber : Token -> Maybe Float
 getNumber (Token t) =
     case t.type_ of
@@ -239,6 +251,16 @@ getString : Token -> Maybe String
 getString (Token t) =
     case t.type_ of
         String str ->
+            Just str
+
+        _ ->
+            Nothing
+
+
+getIdentifier : Token -> Maybe String
+getIdentifier (Token t) =
+    case t.type_ of
+        Identifier str ->
             Just str
 
         _ ->

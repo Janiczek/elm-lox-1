@@ -24,8 +24,44 @@ parseExpr tokens =
 program : Parser (List Stmt)
 program =
     Parser.succeed identity
-        |> Parser.keep (Parser.many statement)
+        |> Parser.keep (Parser.many declaration)
         |> Parser.skip Parser.end
+
+
+
+-- DECLARATION
+
+
+declaration : Parser Stmt
+declaration =
+    Parser.oneOf
+        [ varDeclaration
+        , statement
+        ]
+
+
+varDeclaration : Parser Stmt
+varDeclaration =
+    Parser.oneOf
+        [ Parser.succeed Stmt.VarDecl
+            |> Parser.skip (Parser.token Token.Var)
+            |> Parser.keep identifier
+            |> Parser.skip (Parser.token Token.Equal)
+            |> Parser.keep (Parser.map Just expression)
+            |> Parser.skip (Parser.token Token.Semicolon)
+        , Parser.succeed Stmt.VarDecl
+            |> Parser.skip (Parser.token Token.Var)
+            |> Parser.keep identifier
+            |> Parser.keep (Parser.succeed Nothing)
+            |> Parser.skip (Parser.token Token.Semicolon)
+        ]
+
+
+identifier : Parser String
+identifier =
+    Parser.chompIf Token.isIdentifier (ParserError ExpectedIdentifier)
+        |> Parser.map Token.getIdentifier
+        |> Parser.andThen (Parser.maybe identity (ParserError ExpectedIdentifier))
 
 
 
@@ -176,4 +212,5 @@ primary =
             |> Parser.skip (Parser.token LeftParen)
             |> Parser.keep expression
             |> Parser.skip (Parser.token RightParen)
+        , Parser.map Expr.Identifier identifier
         ]

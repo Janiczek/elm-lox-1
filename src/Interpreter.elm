@@ -42,6 +42,9 @@ interpretStmt stmt =
                 -- TODO if interpretExpr later returns effects too, we need to not drop them here
                 |> Result.map (.value >> Value.toString >> PrintEff >> Just)
 
+        VarDecl name maybeExpr ->
+            Debug.todo "varDecl"
+
 
 interpretExpr : Expr -> Result Error { value : Value }
 interpretExpr expr =

@@ -110,15 +110,24 @@ runAndRepeat input =
     runPrompt
 
 
+logList : String -> List a -> List a
+logList label list =
+    list
+        |> List.reverse
+        |> List.map (Debug.log label)
+        |> List.reverse
+
+
 run : String -> Result ( List Error, List Effect ) (List Effect)
 run program =
     let
         scan =
-            Scanner.scan
+            Scanner.scan >> Result.map (logList "scanned")
 
         parse =
             Parser.parseProgram
                 >> Result.mapError List.singleton
+                >> Result.map (logList "parsed")
 
         addEffects =
             Result.mapError (\errs -> ( errs, [] ))
@@ -126,6 +135,7 @@ run program =
         interpret =
             Interpreter.interpretProgram
                 >> Result.mapError (Tuple.mapFirst List.singleton)
+                >> Result.map (logList "interpreted")
     in
     program
         |> scan

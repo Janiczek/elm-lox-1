@@ -2,6 +2,7 @@ module Interpreter exposing (interpretExpr, interpretProgram)
 
 import Dict exposing (Dict)
 import Effect exposing (Effect(..))
+import Env exposing (EnvChain)
 import Error exposing (Error, InterpreterError(..), Type(..))
 import Expr exposing (Expr(..))
 import Result.Extra
@@ -10,55 +11,48 @@ import Token exposing (Token)
 import Value exposing (Value(..))
 
 
-type alias Env =
-    Dict String Value
-
-
 interpretProgram : List Stmt -> Result ( Error, List Effect ) (List Effect)
 interpretProgram stmts_ =
     let
-        go : Env -> List Effect -> List Stmt -> Result ( Error, List Effect ) (List Effect)
-        go env effs stmts =
+        go : EnvChain -> List Effect -> List Stmt -> Result ( Error, List Effect ) (List Effect)
+        go envChain effs stmts =
             case stmts of
                 [] ->
-                    Ok <| List.reverse effs
+                    Ok (List.reverse effs)
 
                 stmt :: rest ->
-                    case interpretStmt env stmt of
-                        Err err ->
-                            Err ( err, List.reverse effs )
+                    case interpretStmt envChain stmt of
+                        Err ( err, stmtEffs ) ->
+                            Err ( err, List.reverse (stmtEffs ++ effs) )
 
                         Ok res ->
-                            case res.effect of
-                                Nothing ->
-                                    go res.env effs rest
-
-                                Just eff ->
-                                    go res.env (eff :: effs) rest
+                            go res.envChain (res.effects ++ effs) rest
     in
-    go Dict.empty [] stmts_
+    go Env.empty [] stmts_
 
 
-interpretStmt : Env -> Stmt -> Result Error { env : Env, effect : Maybe Effect }
-interpretStmt env stmt =
+interpretStmt : EnvChain -> Stmt -> Result ( Error, List Effect ) { envChain : EnvChain, effects : List Effect }
+interpretStmt envChain stmt =
     case stmt of
         ExprStmt expr ->
-            -- TODO this will surely later return effects
-            interpretExpr env expr
+            -- TODO: likely we'll need to handle effects here
+            interpretExpr envChain expr
+                |> Result.mapError (\err -> ( err, [] ))
                 |> Result.map
                     (\res ->
-                        { env = res.env
-                        , effect = Nothing
+                        { envChain = res.envChain
+                        , effects = []
                         }
                     )
 
         Print expr ->
-            interpretExpr env expr
-                -- TODO if interpretExpr later returns effects too, we need to not drop them here
+            -- TODO: likely we'll need to handle effects here
+            interpretExpr envChain expr
+                |> Result.mapError (\err -> ( err, [] ))
                 |> Result.map
                     (\res ->
-                        { env = res.env
-                        , effect = Just (PrintEff (Value.toString res.value))
+                        { envChain = res.envChain
+                        , effects = [ PrintEff (Value.toString res.value) ]
                         }
                     )
 
@@ -66,22 +60,55 @@ interpretStmt env stmt =
             case maybeExpr of
                 Nothing ->
                     Ok
-                        { env = Dict.insert name VNil env
-                        , effect = Nothing
+                        { envChain = Env.declareInCurrent name VNil envChain
+                        , effects = []
                         }
 
                 Just expr ->
-                    interpretExpr env expr
+                    -- TODO: likely we'll need to handle effects here
+                    interpretExpr envChain expr
+                        |> Result.mapError (\err -> ( err, [] ))
                         |> Result.map
                             (\res ->
-                                { env = Dict.insert name res.value res.env
-                                , effect = Nothing
+                                { envChain = Env.declareInCurrent name res.value res.envChain
+                                , effects = []
                                 }
                             )
 
+        Block statements ->
+            List.foldl
+                (\statement result ->
+                    case result of
+                        Err ( err, effects ) ->
+                            Err ( err, effects )
 
-interpretExpr : Env -> Expr -> Result Error { env : Env, value : Value }
-interpretExpr env expr =
+                        Ok acc ->
+                            case interpretStmt acc.envChain statement of
+                                Err ( err, effects ) ->
+                                    Err ( err, effects ++ acc.effects )
+
+                                Ok res ->
+                                    Ok
+                                        { envChain = res.envChain
+                                        , effects = res.effects ++ acc.effects
+                                        }
+                )
+                (Ok
+                    { envChain = Env.pushEmptyEnv envChain
+                    , effects = []
+                    }
+                )
+                statements
+                |> Result.map
+                    (\res ->
+                        { envChain = Env.popEnv res.envChain
+                        , effects = res.effects
+                        }
+                    )
+
+
+interpretExpr : EnvChain -> Expr -> Result Error { envChain : EnvChain, value : Value }
+interpretExpr envChain expr =
     {- TODO we'll likely later add effects / ... to the `value` returned record
        if not, we can simplify a lot of things here!
 
@@ -89,27 +116,32 @@ interpretExpr env expr =
        so that you can check if you need to _not throw away_ some effects from
        children `interpretExpr` calls.
     -}
+    let
+        withoutEnvChanges : Value -> Result Error { envChain : EnvChain, value : Value }
+        withoutEnvChanges value =
+            Ok { envChain = envChain, value = value }
+    in
     case expr of
         Nil ->
-            Ok { env = env, value = VNil }
+            withoutEnvChanges VNil
 
         False_ ->
-            Ok { env = env, value = VBool False }
+            withoutEnvChanges (VBool False)
 
         True_ ->
-            Ok { env = env, value = VBool True }
+            withoutEnvChanges (VBool True)
 
         LiteralString str ->
-            Ok { env = env, value = VString str }
+            withoutEnvChanges (VString str)
 
         LiteralNumber float ->
-            Ok { env = env, value = VFloat float }
+            withoutEnvChanges (VFloat float)
 
         Grouping e ->
-            interpretExpr env e
+            interpretExpr envChain e
 
         Identifier name ->
-            case Dict.get name env of
+            case Env.get name envChain of
                 Nothing ->
                     Err <|
                         Error.error
@@ -117,7 +149,7 @@ interpretExpr env expr =
                             (InterpreterError <| UnknownIdentifier name)
 
                 Just value ->
-                    Ok { env = env, value = value }
+                    withoutEnvChanges value
 
         Unary { operator, right } ->
             let
@@ -127,7 +159,7 @@ interpretExpr env expr =
             in
             case tokenType of
                 Token.Minus ->
-                    interpretExpr env right
+                    interpretExpr envChain right
                         |> Result.andThen
                             (\r ->
                                 floatNegate operator r.value
@@ -135,7 +167,7 @@ interpretExpr env expr =
                             )
 
                 Token.Bang ->
-                    interpretExpr env right
+                    interpretExpr envChain right
                         |> Result.map (mapValue boolNegate)
 
                 _ ->
@@ -151,7 +183,7 @@ interpretExpr env expr =
                 tokenType =
                     Token.type_ operator
 
-                numOp : (Float -> Float -> Float) -> Result Error { env : Env, value : Value }
+                numOp : (Float -> Float -> Float) -> Result Error { envChain : EnvChain, value : Value }
                 numOp op =
                     Result.map2
                         (\l r ->
@@ -175,11 +207,11 @@ interpretExpr env expr =
                                             (InterpreterError <| ExpectedNumberI r.value)
                                         )
                         )
-                        (interpretExpr env left)
-                        (interpretExpr env right)
+                        (interpretExpr envChain left)
+                        (interpretExpr envChain right)
                         |> Result.andThen identity
 
-                comparisonOp : (Float -> Float -> Bool) -> Result Error { env : Env, value : Value }
+                comparisonOp : (Float -> Float -> Bool) -> Result Error { envChain : EnvChain, value : Value }
                 comparisonOp op =
                     Result.map2
                         (\l r ->
@@ -203,15 +235,15 @@ interpretExpr env expr =
                                             (InterpreterError <| ExpectedNumberI r.value)
                                         )
                         )
-                        (interpretExpr env left)
-                        (interpretExpr env right)
+                        (interpretExpr envChain left)
+                        (interpretExpr envChain right)
                         |> Result.andThen identity
 
-                equalityOp : (Value -> Value -> Bool) -> Result Error { env : Env, value : Value }
+                equalityOp : (Value -> Value -> Bool) -> Result Error { envChain : EnvChain, value : Value }
                 equalityOp op =
                     Result.map2 (\l r -> setValue (VBool (op l.value r.value)) r)
-                        (interpretExpr env left)
-                        (interpretExpr env right)
+                        (interpretExpr envChain left)
+                        (interpretExpr envChain right)
             in
             case tokenType of
                 Token.Minus ->
@@ -276,8 +308,8 @@ interpretExpr env expr =
                                             (InterpreterError <| ExpectedNumberOrString l.value)
                                         )
                         )
-                        (interpretExpr env left)
-                        (interpretExpr env right)
+                        (interpretExpr envChain left)
+                        (interpretExpr envChain right)
                         |> Result.andThen identity
 
                 _ ->
@@ -288,28 +320,23 @@ interpretExpr env expr =
                         )
 
         Assign { names, value } ->
-            Result.map2
-                (\_ result ->
-                    List.foldl
-                        (\name acc -> { acc | env = Dict.insert name result.value acc.env })
-                        result
-                        names
-                )
-                (Result.Extra.combineMap (checkNameExists env) names)
-                (interpretExpr env value)
-
-
-checkNameExists : Env -> String -> Result Error ()
-checkNameExists env name =
-    if Dict.member name env then
-        Ok ()
-
-    else
-        Err
-            (Error.error
-                -1
-                (InterpreterError (UnknownIdentifier name))
-            )
+            interpretExpr envChain value
+                |> Result.andThen
+                    (\exprResult ->
+                        List.foldl
+                            (\name accResult ->
+                                accResult
+                                    |> Result.andThen
+                                        (\acc ->
+                                            acc.envChain
+                                                |> Env.assignToExisting name acc.value
+                                                |> Maybe.map (\newChain -> { acc | envChain = newChain })
+                                                |> Result.fromMaybe (Error.error -1 (InterpreterError (UnknownIdentifier name)))
+                                        )
+                            )
+                            (Ok exprResult)
+                            names
+                    )
 
 
 mapValue : (a -> a) -> { r | value : a } -> { r | value : a }

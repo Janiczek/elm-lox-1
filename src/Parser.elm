@@ -37,7 +37,16 @@ declaration =
     Parser.oneOf
         [ varDeclaration
         , statement
+        , block
         ]
+
+
+block : Parser Stmt
+block =
+    Parser.succeed Stmt.Block
+        |> Parser.skip (Parser.token Token.LeftBrace)
+        |> Parser.keep (Parser.many (Parser.lazy (\() -> declaration)))
+        |> Parser.skip (Parser.token Token.RightBrace)
 
 
 varDeclaration : Parser Stmt

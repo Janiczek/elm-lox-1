@@ -14,7 +14,7 @@ type alias State =
     }
 
 
-scan : String -> Result (List Error) (List Token)
+scan : String -> Result Error (List Token)
 scan program =
     let
         initState : State
@@ -26,14 +26,10 @@ scan program =
             , line = 1
             }
 
-        go : State -> List Error -> List Token -> Result (List Error) (List Token)
-        go state errors tokens =
+        go : State -> List Token -> Result Error (List Token)
+        go state tokens =
             if isAtEnd state then
-                if List.isEmpty errors then
-                    Ok tokens
-
-                else
-                    Err errors
+                Ok tokens
 
             else
                 let
@@ -42,17 +38,16 @@ scan program =
                 in
                 case result of
                     Ok Nothing ->
-                        go newState errors tokens
+                        go newState tokens
 
                     Ok (Just newToken) ->
-                        go newState errors (newToken :: tokens)
+                        go newState (newToken :: tokens)
 
                     Err err ->
-                        go newState (err :: errors) tokens
+                        Err err
     in
-    go initState [] []
+    go initState []
         |> Result.map List.reverse
-        |> Result.mapError List.reverse
 
 
 {-|

@@ -44,29 +44,31 @@ succeed value =
 
 fail : Error.Type -> Parser a
 fail error =
-    Parser <| \tokens ->
-    let
-        line : Int
-        line =
-            case tokens of
-                t :: _ ->
-                    Token.line t
+    Parser <|
+        \tokens ->
+            let
+                line : Int
+                line =
+                    case tokens of
+                        t :: _ ->
+                            Token.line t
 
-                [] ->
-                    -1
-    in
-    Err (Error.error line error)
+                        [] ->
+                            -1
+            in
+            Err (Error.error line error)
 
 
 map : (a -> b) -> Parser a -> Parser b
 map fn (Parser parse) =
-    Parser <| \tokens ->
-    case parse tokens of
-        Err err ->
-            Err err
+    Parser <|
+        \tokens ->
+            case parse tokens of
+                Err err ->
+                    Err err
 
-        Ok ( andThe, rest ) ->
-            Ok ( fn andThe, rest )
+                Ok ( andThe, rest ) ->
+                    Ok ( fn andThe, rest )
 
 
 andMap : Parser a -> Parser (a -> b) -> Parser b
@@ -92,32 +94,34 @@ map3 fn parserA parserB parserC =
 
 andThen : (a -> Parser b) -> Parser a -> Parser b
 andThen fn (Parser parse) =
-    Parser <| \tokens ->
-    case parse tokens of
-        Err err ->
-            Err err
+    Parser <|
+        \tokens ->
+            case parse tokens of
+                Err err ->
+                    Err err
 
-        Ok ( andThe, rest ) ->
-            let
-                (Parser nextParse) =
-                    fn andThe
-            in
-            nextParse rest
+                Ok ( andThe, rest ) ->
+                    let
+                        (Parser nextParse) =
+                            fn andThe
+                    in
+                    nextParse rest
 
 
 chompIf_ : (Token -> Bool) -> Parser (Maybe Token)
 chompIf_ isTokenAllowed =
-    Parser <| \tokens ->
-    case tokens of
-        [] ->
-            Ok ( Nothing, tokens )
+    Parser <|
+        \tokens ->
+            case tokens of
+                [] ->
+                    Ok ( Nothing, tokens )
 
-        t :: rest ->
-            if isTokenAllowed t then
-                Ok ( Just t, rest )
+                t :: rest ->
+                    if isTokenAllowed t then
+                        Ok ( Just t, rest )
 
-            else
-                Ok ( Nothing, tokens )
+                    else
+                        Ok ( Nothing, tokens )
 
 
 chompIf : (Token -> Bool) -> Error.Type -> Parser Token
@@ -128,17 +132,18 @@ chompIf isTokenAllowed error =
 
 token : Token.Type -> Parser Token
 token wantedToken =
-    Parser <| \tokens ->
-    case tokens of
-        [] ->
-            Err (Error.error -1 (ParserError (ExpectedToken wantedToken)))
+    Parser <|
+        \tokens ->
+            case tokens of
+                [] ->
+                    Err (Error.error -1 (ParserError (ExpectedToken wantedToken)))
 
-        t :: ts ->
-            if Token.type_ t == wantedToken then
-                Ok ( t, ts )
+                t :: ts ->
+                    if Token.type_ t == wantedToken then
+                        Ok ( t, ts )
 
-            else
-                Err (Error.error (Token.line t) (ParserError (ExpectedToken wantedToken)))
+                    else
+                        Err (Error.error (Token.line t) (ParserError (ExpectedToken wantedToken)))
 
 
 {-| Reports the last parser's error if needed
@@ -212,12 +217,13 @@ maybe fn err maybeToken =
 
 end : Parser ()
 end =
-    Parser <| \tokens ->
-    if List.isEmpty tokens then
-        Ok ( (), tokens )
+    Parser <|
+        \tokens ->
+            if List.isEmpty tokens then
+                Ok ( (), tokens )
 
-    else
-        Err (Error.error -1 (ParserError ExpectedEOF))
+            else
+                Err (Error.error -1 (ParserError ExpectedEOF))
 
 
 many : Parser a -> Parser (List a)
@@ -260,9 +266,10 @@ skip next original =
 
 lazy : (() -> Parser a) -> Parser a
 lazy toParser =
-    Parser <| \tokens ->
-    let
-        (Parser parse) =
-            toParser ()
-    in
-    parse tokens
+    Parser <|
+        \tokens ->
+            let
+                (Parser parse) =
+                    toParser ()
+            in
+            parse tokens

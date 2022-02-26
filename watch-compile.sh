@@ -3,17 +3,11 @@
 COLOR_OFF="\e[0m";
 DIM="\e[2m";
 
-LOCKNAME=$(cat /dev/urandom | LC_ALL=C tr -cd 'a-f0-9' | head -c 16);
-LOCKFILE="/tmp/elm-lock-${LOCKNAME}"
-
 function compile {
-  find src -name '*.elm' | xargs elm make --output /dev/null
+  find src -name '*.elm' | xargs elm make --output /dev/null && make
 }
 
 function run {
-  (
-  flock 200
-
   clear;
   tput reset;
   echo -en "\033c\033[3J";
@@ -23,12 +17,10 @@ function run {
   echo -en "${COLOR_OFF}";
 
   compile;
-
-  ) 200>"${LOCKFILE}"
 }
 
 run;
 
-chokidar '**/*.elm' | while read WHATEVER; do
+chokidar '(src|tests)/**/*.elm' | while read WHATEVER; do
   run;
 done;

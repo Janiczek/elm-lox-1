@@ -104,7 +104,8 @@ runAndRepeat input =
                                 |> List.foldl (\eff () -> runEffect eff) ()
                     in
                     errors
-                        |> List.map (Error.toString >> Debug.log "err")
+                        |> Error.toString
+                        |> Debug.log "err"
                         |> always ()
     in
     runPrompt
@@ -112,16 +113,13 @@ runAndRepeat input =
 
 logList : String -> List a -> List a
 logList label list =
-    {-
-       list
-           |> List.reverse
-           |> List.map (Debug.log label)
-           |> List.reverse
-    -}
     list
+        |> List.reverse
+        |> List.map (Debug.log label)
+        |> List.reverse
 
 
-run : String -> Result ( List Error, List Effect ) (List Effect)
+run : String -> Result ( Error, List Effect ) (List Effect)
 run program =
     let
         scan =
@@ -129,15 +127,13 @@ run program =
 
         parse =
             Parser.parseProgram
-                >> Result.mapError List.singleton
                 >> Result.map (logList "parsed")
 
         addEffects =
-            Result.mapError (\errs -> ( errs, [] ))
+            Result.mapError (\err -> ( err, [] ))
 
         interpret =
             Interpreter.interpretProgram
-                >> Result.mapError (Tuple.mapFirst List.singleton)
                 >> Result.map (logList "interpreted")
     in
     program
@@ -212,7 +208,7 @@ readFileResult_ read model =
                                 in
                                 ( Done, Cmd.none )
 
-                            Err ( errors, effects ) ->
+                            Err ( error, effects ) ->
                                 let
                                     _ =
                                         effects
@@ -221,7 +217,7 @@ readFileResult_ read model =
                                 let
                                     errorCode : Int
                                     errorCode =
-                                        if List.any Error.isInterpreterError errors then
+                                        if Error.isInterpreterError error then
                                             70
 
                                         else
@@ -230,9 +226,7 @@ readFileResult_ read model =
                                 ( Done
                                 , exitWithMessage
                                     ( errorCode
-                                    , errors
-                                        |> List.map Error.toString
-                                        |> String.join "\n"
+                                    , Error.toString error
                                     )
                                 )
 

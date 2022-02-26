@@ -18,7 +18,6 @@ import Value exposing (Value)
 type Error
     = Error
         { line : Int
-        , where_ : Maybe String
         , type_ : Type
         }
 
@@ -62,14 +61,12 @@ error : Int -> Type -> Error
 error line type_ =
     Error
         { line = line
-        , where_ = Nothing
         , type_ = type_
         }
 
 
 locatedError :
     { line : Int
-    , where_ : Maybe String
     , type_ : Type
     }
     -> Error
@@ -167,12 +164,10 @@ typeToString type_ =
 
 
 toString : Error -> String
-toString (Error { line, where_, type_ }) =
+toString (Error { line, type_ }) =
     "[line "
         ++ String.fromInt line
-        ++ "] Error"
-        ++ Maybe.withDefault "" where_
-        ++ ": "
+        ++ "] Error: "
         ++ typeToString type_
 
 

@@ -1,19 +1,9 @@
-var beverage = "espresso";
-print beverage;
+var volume = 11;
+volume = 0;
 
-var a;
-print a; // "nil".
+{
+  var volume = 3 * 4 * 5;
+  print volume; // 60
+}
 
-var x = 1;
-var y = 2;
-print x + y;
-
-var d = 2;
-var e;
-var f;
-var g;
-d = e = f = g = 1;
-print d;
-print e;
-print g = 2;
-print f == g;
+print volume; // 0

@@ -1,10 +1,12 @@
 port module Main exposing (main)
 
+import AstPrinter
 import Effect exposing (Effect(..))
 import Error exposing (Error)
 import Interpreter
 import Parser
 import Scanner
+import Token
 
 
 port readFile : String -> Cmd msg
@@ -111,11 +113,18 @@ runAndRepeat input =
     runPrompt
 
 
-logList : String -> List a -> List a
-logList label list =
+logList : (a -> b) -> String -> List a -> List a
+logList fn label list =
     list
         |> List.reverse
-        |> List.map (Debug.log label)
+        |> List.map
+            (\x ->
+                let
+                    _ =
+                        Debug.log label (fn x)
+                in
+                x
+            )
         |> List.reverse
 
 
@@ -123,18 +132,18 @@ run : String -> Result ( Error, List Effect ) (List Effect)
 run program =
     let
         scan =
-            Scanner.scan >> Result.map (logList "scanned")
+            Scanner.scan >> Result.map (logList Token.lexeme "scanned")
 
         parse =
             Parser.parseProgram
-                >> Result.map (logList "parsed")
+                >> Result.map (logList AstPrinter.printStatement "parsed")
 
         addEffects =
             Result.mapError (\err -> ( err, [] ))
 
         interpret =
             Interpreter.interpretProgram
-                >> Result.map (logList "interpreted")
+                >> Result.map (logList identity "interpreted")
     in
     program
         |> scan

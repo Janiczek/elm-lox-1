@@ -1,11 +1,44 @@
-module AstPrinter exposing (print)
+module AstPrinter exposing (printExpr, printStatement)
 
 import Expr exposing (Expr(..))
+import Stmt exposing (Stmt(..))
 import Token
 
 
-print : Expr -> String
-print expr =
+printStatement : Stmt -> String
+printStatement stmt =
+    case stmt of
+        ExprStmt expr ->
+            printExpr expr ++ ";"
+
+        Print expr ->
+            "print " ++ printExpr expr ++ ";"
+
+        VarDecl name maybeExpr ->
+            "var "
+                ++ name
+                ++ (maybeExpr
+                        |> Maybe.map (\e -> " = " ++ printExpr e)
+                        |> Maybe.withDefault ""
+                   )
+                ++ ";"
+
+        Block stmts ->
+            "{\\n"
+                ++ (stmts
+                        |> List.map (printStatement >> indent)
+                        |> String.join "\n"
+                   )
+                ++ "\\n}"
+
+
+indent : String -> String
+indent str =
+    "  " ++ str
+
+
+printExpr : Expr -> String
+printExpr expr =
     case expr of
         Binary { left, operator, right } ->
             parenthesize
@@ -51,7 +84,7 @@ print expr =
 parenthesize : String -> List Expr -> String
 parenthesize head exprs =
     "("
-        ++ ((head :: List.map print exprs)
+        ++ ((head :: List.map printExpr exprs)
                 |> String.join " "
            )
         ++ ")"

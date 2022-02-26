@@ -122,7 +122,7 @@ astPrinterTests =
                             , right = Expr.LiteralNumber 45.67
                             }
                     }
-                    |> AstPrinter.print
+                    |> AstPrinter.printExpr
                     |> Expect.equal "(* (- 123) (group 45.67))"
         ]
 

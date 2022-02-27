@@ -413,4 +413,23 @@ interpreterProgramTests =
                             , PrintEff "\"yes\""
                             ]
                         )
+        , Test.test "while" <|
+            \() ->
+                """
+                var i = 5;
+                while (i > 0) {
+                  print i;
+                  i = i - 1;
+                }
+                """
+                    |> interpretSource
+                    |> Expect.equal
+                        (Ok
+                            [ PrintEff "5"
+                            , PrintEff "4"
+                            , PrintEff "3"
+                            , PrintEff "2"
+                            , PrintEff "1"
+                            ]
+                        )
         ]

@@ -24,6 +24,12 @@ printStatement stmt =
                             " else " ++ printStatement else__
                    )
 
+        While { condition, body } ->
+            "while ("
+                ++ printExpr condition
+                ++ ") "
+                ++ printStatement body
+
         Print expr ->
             "print " ++ printExpr expr ++ ";"
 

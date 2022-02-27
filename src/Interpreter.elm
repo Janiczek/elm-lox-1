@@ -66,6 +66,36 @@ interpretStmt envChain stmt =
                             Just else__ ->
                                 interpretStmt conditionResult.envChain else__
 
+        While { condition, body } ->
+            let
+                -- emulating a while loop here
+                go : { envChain : EnvChain, effects : List Effect } -> Result ( Error, List Effect ) { envChain : EnvChain, effects : List Effect }
+                go acc =
+                    -- TODO: likely we'll need to handle effects here
+                    case interpretExpr acc.envChain condition of
+                        Err err ->
+                            Err ( err, acc.effects )
+
+                        Ok conditionResult ->
+                            if Value.isTruthy conditionResult.value then
+                                case interpretStmt conditionResult.envChain body of
+                                    Err err ->
+                                        Err err
+
+                                    Ok bodyResult ->
+                                        go
+                                            { envChain = bodyResult.envChain
+                                            , effects = bodyResult.effects ++ acc.effects
+                                            }
+
+                            else
+                                Ok acc
+            in
+            go
+                { effects = []
+                , envChain = envChain
+                }
+
         Print expr ->
             -- TODO: likely we'll need to handle effects here
             interpretExpr envChain expr

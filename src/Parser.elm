@@ -73,6 +73,7 @@ statement =
     Parser.oneOf
         [ block
         , ifStatement
+        , whileStatement
         , printStatement
         , exprStatement
         ]
@@ -109,6 +110,22 @@ ifStatement =
                 , Parser.succeed Nothing
                 ]
             )
+
+
+whileStatement : Parser Stmt
+whileStatement =
+    Parser.succeed
+        (\condition body ->
+            Stmt.While
+                { condition = condition
+                , body = body
+                }
+        )
+        |> Parser.skip (Parser.token Token.While)
+        |> Parser.skip (Parser.token Token.LeftParen)
+        |> Parser.keep expression
+        |> Parser.skip (Parser.token Token.RightParen)
+        |> Parser.keep (Parser.lazy (\() -> statement))
 
 
 printStatement : Parser Stmt

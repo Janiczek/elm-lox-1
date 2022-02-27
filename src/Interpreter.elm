@@ -45,6 +45,27 @@ interpretStmt envChain stmt =
                         }
                     )
 
+        If { condition, then_, else_ } ->
+            -- TODO: likely we'll need to handle effects here
+            case interpretExpr envChain condition of
+                Err err ->
+                    Err ( err, [] )
+
+                Ok conditionResult ->
+                    if Value.isTruthy conditionResult.value then
+                        interpretStmt conditionResult.envChain then_
+
+                    else
+                        case else_ of
+                            Nothing ->
+                                Ok
+                                    { envChain = conditionResult.envChain
+                                    , effects = []
+                                    }
+
+                            Just else__ ->
+                                interpretStmt conditionResult.envChain else__
+
         Print expr ->
             -- TODO: likely we'll need to handle effects here
             interpretExpr envChain expr

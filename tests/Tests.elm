@@ -336,4 +336,32 @@ interpreterTests =
                             , PrintEff "\"global c\""
                             ]
                         )
+        , Test.test "if (then)" <|
+            \() ->
+                """
+                if (1) print 10; else print 20;
+                """
+                    |> interpretSource
+                    |> Expect.equal (Ok [ PrintEff "10" ])
+        , Test.test "if (else)" <|
+            \() ->
+                """
+                if (false) print 10; else print 20;
+                """
+                    |> interpretSource
+                    |> Expect.equal (Ok [ PrintEff "20" ])
+        , Test.test "if without else (then)" <|
+            \() ->
+                """
+                if (true) print 10;
+                """
+                    |> interpretSource
+                    |> Expect.equal (Ok [ PrintEff "10" ])
+        , Test.test "if without else (else)" <|
+            \() ->
+                """
+                if (false) print 10;
+                """
+                    |> interpretSource
+                    |> Expect.equal (Ok [])
         ]

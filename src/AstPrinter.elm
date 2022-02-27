@@ -11,6 +11,19 @@ printStatement stmt =
         ExprStmt expr ->
             printExpr expr ++ ";"
 
+        If { condition, then_, else_ } ->
+            "if ("
+                ++ printExpr condition
+                ++ ") "
+                ++ printStatement then_
+                ++ (case else_ of
+                        Nothing ->
+                            ""
+
+                        Just else__ ->
+                            " else " ++ printStatement else__
+                   )
+
         Print expr ->
             "print " ++ printExpr expr ++ ";"
 

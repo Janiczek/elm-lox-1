@@ -1,9 +1,9 @@
-var volume = 11;
-volume = 0;
-
-{
-  var volume = 3 * 4 * 5;
-  print volume; // 60
+var x;
+if (nil) {
+  x = 1;
+  print "true";
+} else {
+  x = 2;
+  print "false";
 }
-
-print volume; // 0
+print x;

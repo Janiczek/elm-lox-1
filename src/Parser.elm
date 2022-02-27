@@ -37,16 +37,7 @@ declaration =
     Parser.oneOf
         [ varDeclaration
         , statement
-        , block
         ]
-
-
-block : Parser Stmt
-block =
-    Parser.succeed Stmt.Block
-        |> Parser.skip (Parser.token Token.LeftBrace)
-        |> Parser.keep (Parser.many (Parser.lazy (\() -> declaration)))
-        |> Parser.skip (Parser.token Token.RightBrace)
 
 
 varDeclaration : Parser Stmt
@@ -80,9 +71,44 @@ identifier =
 statement : Parser Stmt
 statement =
     Parser.oneOf
-        [ printStatement
+        [ block
+        , ifStatement
+        , printStatement
         , exprStatement
         ]
+
+
+block : Parser Stmt
+block =
+    Parser.succeed Stmt.Block
+        |> Parser.skip (Parser.token Token.LeftBrace)
+        |> Parser.keep (Parser.many (Parser.lazy (\() -> declaration)))
+        |> Parser.skip (Parser.token Token.RightBrace)
+
+
+ifStatement : Parser Stmt
+ifStatement =
+    Parser.succeed
+        (\condition then_ else_ ->
+            Stmt.If
+                { condition = condition
+                , then_ = then_
+                , else_ = else_
+                }
+        )
+        |> Parser.skip (Parser.token Token.If)
+        |> Parser.skip (Parser.token Token.LeftParen)
+        |> Parser.keep expression
+        |> Parser.skip (Parser.token Token.RightParen)
+        |> Parser.keep (Parser.lazy (\() -> statement))
+        |> Parser.keep
+            (Parser.oneOf
+                [ Parser.succeed Just
+                    |> Parser.skip (Parser.token Token.Else)
+                    |> Parser.keep (Parser.lazy (\() -> statement))
+                , Parser.succeed Nothing
+                ]
+            )
 
 
 printStatement : Parser Stmt

@@ -1,9 +1,1 @@
-var x;
-if (nil) {
-  x = 1;
-  print "true";
-} else {
-  x = 2;
-  print "false";
-}
-print x;
+print false and true or 42;

@@ -153,6 +153,28 @@ assignment =
                     )
                 )
             |> Parser.keep (Parser.lazy (\() -> assignment))
+        , logicOr
+        ]
+
+
+logicOr : Parser Expr
+logicOr =
+    Parser.oneOf
+        [ Parser.succeed LogicOr
+            |> Parser.keep logicAnd
+            |> Parser.skip (Parser.token Token.Or)
+            |> Parser.keep (Parser.lazy (\() -> logicOr))
+        , logicAnd
+        ]
+
+
+logicAnd : Parser Expr
+logicAnd =
+    Parser.oneOf
+        [ Parser.succeed LogicAnd
+            |> Parser.keep equality
+            |> Parser.skip (Parser.token Token.And)
+            |> Parser.keep (Parser.lazy (\() -> logicAnd))
         , equality
         ]
 

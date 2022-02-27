@@ -93,6 +93,16 @@ printExpr expr =
                 "="
                 (List.map Identifier names ++ [ value ])
 
+        LogicOr left right ->
+            parenthesize
+                "or"
+                [ left, right ]
+
+        LogicAnd left right ->
+            parenthesize
+                "and"
+                [ left, right ]
+
 
 parenthesize : String -> List Expr -> String
 parenthesize head exprs =

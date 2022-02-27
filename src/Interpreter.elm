@@ -172,6 +172,28 @@ interpretExpr envChain expr =
                 Just value ->
                     withoutEnvChanges value
 
+        LogicOr left right ->
+            interpretExpr envChain left
+                |> Result.andThen
+                    (\left_ ->
+                        if Value.isTruthy left_.value then
+                            Ok left_
+
+                        else
+                            interpretExpr left_.envChain right
+                    )
+
+        LogicAnd left right ->
+            interpretExpr envChain left
+                |> Result.andThen
+                    (\left_ ->
+                        if Value.isTruthy left_.value then
+                            interpretExpr left_.envChain right
+
+                        else
+                            Ok left_
+                    )
+
         Unary { operator, right } ->
             let
                 tokenType : Token.Type

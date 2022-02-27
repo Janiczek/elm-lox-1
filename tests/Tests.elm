@@ -1,11 +1,13 @@
 module Tests exposing
     ( astPrinterTests
-    , interpreterTests
+    , interpreterExprTests
+    , interpreterProgramTests
     , scannerTests
     )
 
 import AstPrinter
 import Effect exposing (Effect(..))
+import Env
 import Error exposing (Error)
 import Expect
 import Expr
@@ -14,6 +16,7 @@ import Parser
 import Scanner
 import Test exposing (Test)
 import Token exposing (Type(..))
+import Value exposing (Value(..))
 
 
 scannerTests : Test
@@ -98,10 +101,6 @@ scannerTests =
         ]
 
 
-
--- TODO parser tests
-
-
 astPrinterTests : Test
 astPrinterTests =
     Test.describe "AstPrinter.print"
@@ -127,8 +126,45 @@ astPrinterTests =
         ]
 
 
-interpreterTests : Test
-interpreterTests =
+interpreterExprTests : Test
+interpreterExprTests =
+    let
+        interpretSource : String -> Result Error Value
+        interpretSource source =
+            source
+                |> Scanner.scan
+                |> Result.andThen Parser.parseExpr
+                |> Result.andThen (Interpreter.interpretExpr Env.empty)
+                |> Result.map .value
+    in
+    Test.describe "Interpreter.interpretExpr"
+        [ Test.test "logical or - normal" <|
+            \() ->
+                "false or 42"
+                    |> interpretSource
+                    |> Expect.equal (Ok (VFloat 42))
+        , Test.test "logical or - short circuit" <|
+            \() ->
+                "true or 42"
+                    |> interpretSource
+                    |> Expect.equal (Ok (VBool True))
+        , Test.test "logical and - normal" <|
+            \() ->
+                "true and 42"
+                    |> interpretSource
+                    |> Expect.equal (Ok (VFloat 42))
+        , Test.test "logical and - short circuit" <|
+            \() ->
+                "false and print 1"
+                    |> interpretSource
+                    |> Expect.equal (Ok (VBool False))
+
+        -- TODO and or combined
+        ]
+
+
+interpreterProgramTests : Test
+interpreterProgramTests =
     let
         interpretSource : String -> Result ( Error, List Effect ) (List Effect)
         interpretSource source =
@@ -364,4 +400,17 @@ interpreterTests =
                 """
                     |> interpretSource
                     |> Expect.equal (Ok [])
+        , Test.test "logic or (example from book)" <|
+            \() ->
+                """
+                print "hi" or 2; // "hi"
+                print nil or "yes"; // "yes"
+                """
+                    |> interpretSource
+                    |> Expect.equal
+                        (Ok
+                            [ PrintEff "\"hi\""
+                            , PrintEff "\"yes\""
+                            ]
+                        )
         ]

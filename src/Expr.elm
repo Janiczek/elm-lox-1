@@ -13,6 +13,8 @@ type Expr
     | Identifier String
     | LiteralString String
     | LiteralNumber Float
+    | LogicOr Expr Expr
+    | LogicAnd Expr Expr
     | False_
     | True_
     | Nil

@@ -692,4 +692,42 @@ interpreterProgramTests =
                             , PrintEff "4"
                             ]
                         )
+        , Test.test "Fibonacci" <|
+            \() ->
+                """
+                var a = 0;
+                var temp;
+
+                for (var b = 1; a < 10000; b = temp + b) {
+                  print a;
+                  temp = a;
+                  a = b;
+                }
+                """
+                    |> interpretSource
+                    |> Expect.equal
+                        (Ok
+                            [ PrintEff "0"
+                            , PrintEff "1"
+                            , PrintEff "1"
+                            , PrintEff "2"
+                            , PrintEff "3"
+                            , PrintEff "5"
+                            , PrintEff "8"
+                            , PrintEff "13"
+                            , PrintEff "21"
+                            , PrintEff "34"
+                            , PrintEff "55"
+                            , PrintEff "89"
+                            , PrintEff "144"
+                            , PrintEff "233"
+                            , PrintEff "377"
+                            , PrintEff "610"
+                            , PrintEff "987"
+                            , PrintEff "1597"
+                            , PrintEff "2584"
+                            , PrintEff "4181"
+                            , PrintEff "6765"
+                            ]
+                        )
         ]

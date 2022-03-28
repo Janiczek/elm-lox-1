@@ -5,6 +5,8 @@ module Parser.Internal exposing
     , chompIf
     , chompIf_
     , end
+    , fromMaybe
+    , getRemainingTokens
     , keep
     , lazy
     , loop
@@ -127,7 +129,7 @@ chompIf_ isTokenAllowed =
 chompIf : (Token -> Bool) -> Error.Type -> Parser Token
 chompIf isTokenAllowed error =
     chompIf_ isTokenAllowed
-        |> andThen (maybe identity error)
+        |> andThen (fromMaybe identity error)
 
 
 token : Token.Type -> Parser Token
@@ -208,8 +210,8 @@ loopHelp callback state tokens =
             Ok ( val, newTokens )
 
 
-maybe : (a -> b) -> Error.Type -> Maybe a -> Parser b
-maybe fn err maybeToken =
+fromMaybe : (a -> b) -> Error.Type -> Maybe a -> Parser b
+fromMaybe fn err maybeToken =
     maybeToken
         |> Maybe.map (fn >> succeed)
         |> Maybe.withDefault (fail err)
@@ -273,3 +275,16 @@ lazy toParser =
                     toParser ()
             in
             parse tokens
+
+
+maybe : Parser a -> Parser (Maybe a)
+maybe p =
+    oneOf
+        [ map Just p
+        , succeed Nothing
+        ]
+
+
+getRemainingTokens : Parser (List Token)
+getRemainingTokens =
+    Parser <| \tokens -> Ok ( tokens, tokens )

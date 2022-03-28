@@ -2,6 +2,7 @@ module Tests exposing
     ( astPrinterTests
     , interpreterExprTests
     , interpreterProgramTests
+    , parserTests
     , scannerTests
     )
 
@@ -14,6 +15,7 @@ import Expr
 import Interpreter
 import Parser
 import Scanner
+import Stmt exposing (Stmt)
 import Test exposing (Test)
 import Token exposing (Type(..))
 import Value exposing (Value(..))
@@ -98,6 +100,247 @@ scannerTests =
         [ okCases
             |> List.map runOkCase
             |> Test.describe "OK cases"
+        ]
+
+
+parserTests : Test
+parserTests =
+    let
+        parseSource : String -> Result Error (List Stmt)
+        parseSource source =
+            source
+                |> Scanner.scan
+                |> Result.andThen Parser.parseProgram
+    in
+    Test.describe "Parser.parseProgram"
+        [ Test.test "for (init;cond;incr)" <|
+            \() ->
+                """
+                for (var i = 0; i < 5; i = i + 1)
+                    print i;
+                """
+                    |> parseSource
+                    |> Expect.equal
+                        (Ok
+                            [ Stmt.Block
+                                [ Stmt.VarDecl "i" (Just (Expr.LiteralNumber 0))
+                                , Stmt.While
+                                    { condition =
+                                        Expr.Binary
+                                            { left = Expr.Identifier "i"
+                                            , operator = Token.token Token.Less "<" 2
+                                            , right = Expr.LiteralNumber 5
+                                            }
+                                    , body =
+                                        Stmt.Block
+                                            [ Stmt.Print (Expr.Identifier "i")
+                                            , Stmt.ExprStmt
+                                                (Expr.Assign
+                                                    { names = [ "i" ]
+                                                    , value =
+                                                        Expr.Binary
+                                                            { left = Expr.Identifier "i"
+                                                            , operator = Token.token Token.Plus "+" 2
+                                                            , right = Expr.LiteralNumber 1
+                                                            }
+                                                    }
+                                                )
+                                            ]
+                                    }
+                                ]
+                            ]
+                        )
+        , Test.test "for (init;cond;)" <|
+            \() ->
+                """
+                for (var i = 0; i < 5;) 
+                    print i;
+                """
+                    |> parseSource
+                    |> Expect.equal
+                        (Ok
+                            [ Stmt.Block
+                                [ Stmt.VarDecl "i" (Just (Expr.LiteralNumber 0))
+                                , Stmt.While
+                                    { condition =
+                                        Expr.Binary
+                                            { left = Expr.Identifier "i"
+                                            , operator = Token.token Token.Less "<" 2
+                                            , right = Expr.LiteralNumber 5
+                                            }
+                                    , body =
+                                        Stmt.Block
+                                            [ Stmt.Print (Expr.Identifier "i")
+                                            ]
+                                    }
+                                ]
+                            ]
+                        )
+        , Test.test "for (init;;incr)" <|
+            \() ->
+                """
+                for (var i = 0;; i = i + 1) 
+                    print i;
+                """
+                    |> parseSource
+                    |> Expect.equal
+                        (Ok
+                            [ Stmt.Block
+                                [ Stmt.VarDecl "i" (Just (Expr.LiteralNumber 0))
+                                , Stmt.While
+                                    { condition = Expr.True_
+                                    , body =
+                                        Stmt.Block
+                                            [ Stmt.Print (Expr.Identifier "i")
+                                            , Stmt.ExprStmt
+                                                (Expr.Assign
+                                                    { names = [ "i" ]
+                                                    , value =
+                                                        Expr.Binary
+                                                            { left = Expr.Identifier "i"
+                                                            , operator = Token.token Token.Plus "+" 2
+                                                            , right = Expr.LiteralNumber 1
+                                                            }
+                                                    }
+                                                )
+                                            ]
+                                    }
+                                ]
+                            ]
+                        )
+        , Test.test "for (init;;)" <|
+            \() ->
+                """
+                for (var i = 0;;) 
+                    print i;
+                """
+                    |> parseSource
+                    |> Expect.equal
+                        (Ok
+                            [ Stmt.Block
+                                [ Stmt.VarDecl "i" (Just (Expr.LiteralNumber 0))
+                                , Stmt.While
+                                    { condition = Expr.True_
+                                    , body =
+                                        Stmt.Block
+                                            [ Stmt.Print (Expr.Identifier "i")
+                                            ]
+                                    }
+                                ]
+                            ]
+                        )
+        , Test.test "for (;cond;incr)" <|
+            \() ->
+                """
+                for (; i < 5; i = i + 1) 
+                    print i;
+                """
+                    |> parseSource
+                    |> Expect.equal
+                        (Ok
+                            [ Stmt.Block
+                                [ Stmt.While
+                                    { condition =
+                                        Expr.Binary
+                                            { left = Expr.Identifier "i"
+                                            , operator = Token.token Token.Less "<" 2
+                                            , right = Expr.LiteralNumber 5
+                                            }
+                                    , body =
+                                        Stmt.Block
+                                            [ Stmt.Print (Expr.Identifier "i")
+                                            , Stmt.ExprStmt
+                                                (Expr.Assign
+                                                    { names = [ "i" ]
+                                                    , value =
+                                                        Expr.Binary
+                                                            { left = Expr.Identifier "i"
+                                                            , operator = Token.token Token.Plus "+" 2
+                                                            , right = Expr.LiteralNumber 1
+                                                            }
+                                                    }
+                                                )
+                                            ]
+                                    }
+                                ]
+                            ]
+                        )
+        , Test.test "for (;cond;)" <|
+            \() ->
+                """
+                for (; i < 5;) 
+                    print i;
+                """
+                    |> parseSource
+                    |> Expect.equal
+                        (Ok
+                            [ Stmt.Block
+                                [ Stmt.While
+                                    { condition =
+                                        Expr.Binary
+                                            { left = Expr.Identifier "i"
+                                            , operator = Token.token Token.Less "<" 2
+                                            , right = Expr.LiteralNumber 5
+                                            }
+                                    , body =
+                                        Stmt.Block
+                                            [ Stmt.Print (Expr.Identifier "i")
+                                            ]
+                                    }
+                                ]
+                            ]
+                        )
+        , Test.test "for (;;incr)" <|
+            \() ->
+                """
+                for (;; i = i + 1) 
+                    print i;
+                """
+                    |> parseSource
+                    |> Expect.equal
+                        (Ok
+                            [ Stmt.Block
+                                [ Stmt.While
+                                    { condition = Expr.True_
+                                    , body =
+                                        Stmt.Block
+                                            [ Stmt.Print (Expr.Identifier "i")
+                                            , Stmt.ExprStmt
+                                                (Expr.Assign
+                                                    { names = [ "i" ]
+                                                    , value =
+                                                        Expr.Binary
+                                                            { left = Expr.Identifier "i"
+                                                            , operator = Token.token Token.Plus "+" 2
+                                                            , right = Expr.LiteralNumber 1
+                                                            }
+                                                    }
+                                                )
+                                            ]
+                                    }
+                                ]
+                            ]
+                        )
+        , Test.test "for (;;)" <|
+            \() ->
+                """
+                for (;;) 
+                    print i;
+                """
+                    |> parseSource
+                    |> Expect.equal
+                        (Ok
+                            [ Stmt.Block
+                                [ Stmt.While
+                                    { condition = Expr.True_
+                                    , body =
+                                        Stmt.Block
+                                            [ Stmt.Print (Expr.Identifier "i")
+                                            ]
+                                    }
+                                ]
+                            ]
+                        )
         ]
 
 
@@ -430,6 +673,23 @@ interpreterProgramTests =
                             , PrintEff "3"
                             , PrintEff "2"
                             , PrintEff "1"
+                            ]
+                        )
+        , Test.test "for" <|
+            \() ->
+                """
+                for (var i = 0; i < 5; i = i + 1) {
+                    print i;
+                }
+                """
+                    |> interpretSource
+                    |> Expect.equal
+                        (Ok
+                            [ PrintEff "0"
+                            , PrintEff "1"
+                            , PrintEff "2"
+                            , PrintEff "3"
+                            , PrintEff "4"
                             ]
                         )
         ]

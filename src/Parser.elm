@@ -2,6 +2,7 @@ module Parser exposing (parseExpr, parseProgram)
 
 import Error exposing (Error, ParserError(..), Type(..))
 import Expr exposing (Expr(..))
+import Maybe.Extra as Maybe
 import Parser.Internal as Parser exposing (Parser)
 import Stmt exposing (Stmt)
 import Token exposing (Token, Type(..))
@@ -61,7 +62,7 @@ identifier : Parser String
 identifier =
     Parser.chompIf Token.isIdentifier (ParserError ExpectedIdentifier)
         |> Parser.map Token.getIdentifier
-        |> Parser.andThen (Parser.maybe identity (ParserError ExpectedIdentifier))
+        |> Parser.andThen (Parser.fromMaybe identity (ParserError ExpectedIdentifier))
 
 
 
@@ -74,6 +75,7 @@ statement =
         [ block
         , ifStatement
         , whileStatement
+        , forStatement
         , printStatement
         , exprStatement
         ]
@@ -124,6 +126,44 @@ whileStatement =
         |> Parser.skip (Parser.token Token.While)
         |> Parser.skip (Parser.token Token.LeftParen)
         |> Parser.keep expression
+        |> Parser.skip (Parser.token Token.RightParen)
+        |> Parser.keep (Parser.lazy (\() -> statement))
+
+
+forStatement : Parser Stmt
+forStatement =
+    Parser.succeed
+        (\maybeInitializer maybeCondition maybeIncrement body ->
+            [ maybeInitializer
+            , Just <|
+                Stmt.While
+                    { condition =
+                        maybeCondition
+                            |> Maybe.withDefault Expr.True_
+                    , body =
+                        [ Just body
+                        , Maybe.map Stmt.ExprStmt maybeIncrement
+                        ]
+                            |> Maybe.values
+                            |> Stmt.Block
+                    }
+            ]
+                |> Maybe.values
+                |> Stmt.Block
+        )
+        |> Parser.skip (Parser.token Token.For)
+        |> Parser.skip (Parser.token Token.LeftParen)
+        |> Parser.keep
+            (Parser.oneOf
+                [ Parser.map Just varDeclaration
+                , Parser.succeed Nothing
+                    |> Parser.skip (Parser.token Token.Semicolon)
+                ]
+            )
+        -- varDeclaration already eats a semicolon
+        |> Parser.keep (Parser.maybe expression)
+        |> Parser.skip (Parser.token Token.Semicolon)
+        |> Parser.keep (Parser.maybe expression)
         |> Parser.skip (Parser.token Token.RightParen)
         |> Parser.keep (Parser.lazy (\() -> statement))
 
@@ -300,10 +340,10 @@ primary =
             |> Parser.map (\_ -> Expr.Nil)
         , Parser.chompIf Token.isNumber (ParserError ExpectedNumberP)
             |> Parser.map Token.getNumber
-            |> Parser.andThen (Parser.maybe LiteralNumber (ParserError ExpectedNumberP))
+            |> Parser.andThen (Parser.fromMaybe LiteralNumber (ParserError ExpectedNumberP))
         , Parser.chompIf Token.isString (ParserError ExpectedStringP)
             |> Parser.map Token.getString
-            |> Parser.andThen (Parser.maybe LiteralString (ParserError ExpectedStringP))
+            |> Parser.andThen (Parser.fromMaybe LiteralString (ParserError ExpectedStringP))
         , Parser.succeed Grouping
             |> Parser.skip (Parser.token LeftParen)
             |> Parser.keep expression
